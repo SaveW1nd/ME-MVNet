@@ -1,0 +1,21 @@
+train:
+  seed: 20260303
+  batch_size: 64
+  num_workers: 0
+  epochs_smoke: 3
+  epochs_formal: 60
+  lr: 0.001
+  weight_decay: 0.0001
+  grad_clip: 5.0
+  early_stop_patience: 12
+  amp: true
+  device: auto
+  print_every: 20
+
+loss:
+  w_tl: 1.0
+  w_tf: 1.0
+  w_nf: 1.0
+  w_mask: 0.5
+  w_phy: 0.2
+  mask_warmup_epochs: 3

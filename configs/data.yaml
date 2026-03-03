@@ -1,0 +1,30 @@
+dataset:
+  name: isrj_single_dataset_v1
+  output_dir: data/raw/isrj_single_dataset_v1
+  seed: 20260303
+
+signal:
+  fs: 40000000.0
+  tp: 0.0001
+  b: 10000000.0
+  n: 4000
+
+grid:
+  nf_list: [1, 2, 4]
+  jnr_db_start: -10
+  jnr_db_stop: 28
+  jnr_db_step: 2
+  nl_points_per_nf: 25
+  nl_min_nf12: 200
+  nl_max_nf12: 1000
+  nl_min_nf4: 200
+  nl_max_nf4: 800
+  mc_repeats: 4
+
+split:
+  train: 0.7
+  val: 0.15
+  test: 0.15
+
+sanity:
+  tf_tl_eps: 1e-6
