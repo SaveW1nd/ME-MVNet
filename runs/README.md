@@ -8,3 +8,8 @@ Each experiment directory (`exp_xxx`) stores:
 - `predictions/{val_pred.npz,test_pred.npz}`
 - `figures/*.png`
 - `tables/*.csv|json`
+
+For ME-MVSepPE route:
+
+- Stage-1 SepNet runs: `exp_sep_*`
+- Stage-2 joint runs: `exp_joint_*`

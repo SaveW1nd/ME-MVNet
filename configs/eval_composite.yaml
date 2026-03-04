@@ -1,0 +1,9 @@
+eval:
+  batch_size: 128
+  num_workers: 0
+  device: auto
+  save_predictions: true
+
+tolerance:
+  tl_us: 0.15
+  ts_us: 0.25

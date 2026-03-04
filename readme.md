@@ -1,11 +1,12 @@
-# ISRJ Parameter Estimation (Reproducible Pipeline)
+# ME-MVSepPE Pipeline (Composite ISRJ Separation + Per-Source Estimation)
 
-This repository implements a full pipeline:
+Main workflow in this repo now follows `need.md` (route B):
 
-1. Generate dataset (`single ISRJ + AWGN`)
-2. Train ME-MVNet
-3. Evaluate on split
-4. Export figures and paper tables
+1. Generate composite dataset (`2~3 ISRJ + echo + AWGN`)
+2. Stage-1 train SepNet (separation only)
+3. Stage-2 joint train (SepNet + PE-Net)
+4. Evaluate with Wang-style metrics (`A_Tl/A_Ts/A_NF/A_total`)
+5. Export figures/tables to `paper/`
 
 ## 1. Install
 
@@ -13,41 +14,65 @@ This repository implements a full pipeline:
 python -m pip install -r requirements.txt
 ```
 
-## 2. Data
+## 2. Generate Composite Dataset
 
 ```bash
-python scripts/00_make_folders.py
-python scripts/01_generate_dataset.py --config configs/data.yaml
-python scripts/05_sanity_check_dataset.py --config configs/data.yaml
+python scripts/10_generate_dataset_composite.py --config configs/data_composite.yaml
+python scripts/11_sanity_check_composite.py --config configs/data_composite.yaml
 ```
 
-## 3. Train
+## 3. Stage-1 Train SepNet
 
-Smoke run:
+Smoke:
 
 ```bash
-python scripts/02_train.py --mode smoke --exp-name exp_001_smoke
+python scripts/12_train_sepnet.py --mode smoke --exp-name exp_sep_smoke
 ```
 
-Formal run:
+Formal:
 
 ```bash
-python scripts/02_train.py --mode formal --exp-name exp_002_formal
+python scripts/12_train_sepnet.py --mode formal --exp-name exp_sep_formal
 ```
 
-## 4. Evaluate
+## 4. Stage-2 Joint Train
+
+Smoke:
 
 ```bash
-python scripts/03_eval.py --ckpt runs/exp_002_formal/checkpoints/best.pt --split test
+python scripts/13_train_seppe_joint.py --sep-ckpt runs/exp_sep_smoke/checkpoints/best.pt --mode smoke --exp-name exp_joint_smoke
 ```
 
-## 5. Export paper figures and tables
+Formal:
 
 ```bash
-python scripts/04_export_plots.py --run-dir runs/exp_002_formal --split test
+python scripts/13_train_seppe_joint.py --sep-ckpt runs/exp_sep_formal/checkpoints/best.pt --mode formal --exp-name exp_joint_formal
+```
+
+## 5. Evaluate
+
+```bash
+python scripts/14_eval_seppe.py --ckpt runs/exp_joint_formal/checkpoints/best.pt --split test --run-dir runs/exp_joint_formal
 ```
 
 Outputs:
 
-- Run artifacts: `runs/exp_xxx/`
-- Paper assets: `paper/figures/`, `paper/tables/`
+- `runs/exp_joint_formal/tables/test_metrics.json`
+- `runs/exp_joint_formal/tables/test_metrics_by_jnr.csv`
+- `runs/exp_joint_formal/tables/test_metrics_by_kactive.csv`
+
+## 6. Export Plots/Tables
+
+```bash
+python scripts/15_export_plots_seppe.py --run-dir runs/exp_joint_formal --split test
+```
+
+Exports to:
+
+- `runs/exp_joint_formal/figures/`
+- `paper/figures/`
+- `paper/tables/`
+
+## Legacy Single-Source Pipeline
+
+Older single-source scripts (`scripts/01~05`) remain in repo for reference, but are no longer the default route.

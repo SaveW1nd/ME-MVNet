@@ -20,6 +20,7 @@ def main() -> None:
         "paper/figures",
         "paper/tables",
         "tests",
+        "data/raw/cisrj_seppe_v1",
     ]
     for d in dirs:
         Path(d).mkdir(parents=True, exist_ok=True)
