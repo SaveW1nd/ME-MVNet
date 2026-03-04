@@ -58,6 +58,7 @@ def _run_epoch(
     scaler: torch.amp.GradScaler,
     amp_enabled: bool,
     grad_clip: float,
+    sep_loss_cfg: dict | None,
 ) -> dict[str, float]:
     is_train = optimizer is not None
     model.train(is_train)
@@ -66,6 +67,11 @@ def _run_epoch(
         "L_sep": AverageMeter(),
         "L_sep_jam": AverageMeter(),
         "L_sep_bg": AverageMeter(),
+        "L_sep_sil": AverageMeter(),
+        "L_sep_orth": AverageMeter(),
+        "L_sep_bgtrue": AverageMeter(),
+        "L_sep_bgenv": AverageMeter(),
+        "L_sep_div": AverageMeter(),
         "SI_SDR_jam": AverageMeter(),
         "SI_SDR_bg": AverageMeter(),
     }
@@ -82,7 +88,7 @@ def _run_epoch(
                 enabled=amp_enabled,
             ):
                 sep_out = model(batch["X"])
-                losses = compute_sep_loss(batch=batch, sep_out=sep_out)
+                losses = compute_sep_loss(batch=batch, sep_out=sep_out, loss_cfg=sep_loss_cfg)
                 loss = losses["L_sep"]
 
             if not torch.isfinite(loss):
@@ -115,6 +121,31 @@ def _run_epoch(
                 float(torch.nan_to_num(losses["L_sep_bg"], nan=0.0, posinf=0.0, neginf=0.0).item()),
                 n=bsz,
             )
+            if "L_sep_sil" in losses:
+                meters["L_sep_sil"].update(
+                    float(torch.nan_to_num(losses["L_sep_sil"], nan=0.0, posinf=0.0, neginf=0.0).item()),
+                    n=bsz,
+                )
+            if "L_sep_orth" in losses:
+                meters["L_sep_orth"].update(
+                    float(torch.nan_to_num(losses["L_sep_orth"], nan=0.0, posinf=0.0, neginf=0.0).item()),
+                    n=bsz,
+                )
+            if "L_sep_bgtrue" in losses:
+                meters["L_sep_bgtrue"].update(
+                    float(torch.nan_to_num(losses["L_sep_bgtrue"], nan=0.0, posinf=0.0, neginf=0.0).item()),
+                    n=bsz,
+                )
+            if "L_sep_bgenv" in losses:
+                meters["L_sep_bgenv"].update(
+                    float(torch.nan_to_num(losses["L_sep_bgenv"], nan=0.0, posinf=0.0, neginf=0.0).item()),
+                    n=bsz,
+                )
+            if "L_sep_div" in losses:
+                meters["L_sep_div"].update(
+                    float(torch.nan_to_num(losses["L_sep_div"], nan=0.0, posinf=0.0, neginf=0.0).item()),
+                    n=bsz,
+                )
 
     out = {k: float(v.avg) for k, v in meters.items()}
     out["N_skip"] = float(skipped)
@@ -170,6 +201,7 @@ def fit_sepnet(
     scaler = torch.amp.GradScaler(device=device.type, enabled=amp_enabled)
     grad_clip = float(cfg["grad_clip"])
     patience = int(cfg["early_stop_patience"])
+    sep_loss_cfg = dict(cfg.get("loss_sep", {}))
 
     best_val = float("inf")
     best_epoch = 0
@@ -185,6 +217,7 @@ def fit_sepnet(
             scaler=scaler,
             amp_enabled=amp_enabled,
             grad_clip=grad_clip,
+            sep_loss_cfg=sep_loss_cfg,
         )
         with torch.no_grad():
             val_m = _run_epoch(
@@ -195,6 +228,7 @@ def fit_sepnet(
                 scaler=scaler,
                 amp_enabled=amp_enabled,
                 grad_clip=0.0,
+                sep_loss_cfg=sep_loss_cfg,
             )
         scheduler.step()
 

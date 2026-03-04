@@ -30,6 +30,8 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--data-config", type=str, default="configs/data_composite.yaml")
     p.add_argument("--model-config", type=str, default="configs/model_sep.yaml")
     p.add_argument("--train-config", type=str, default="configs/train_sep.yaml")
+    p.add_argument("--init-ckpt", type=str, default=None)
+    p.add_argument("--init-partial", action="store_true")
     p.add_argument("--mode", type=str, choices=["smoke", "formal"], default="formal")
     p.add_argument("--exp-name", type=str, default=None)
     return p.parse_args()
@@ -72,8 +74,9 @@ def main() -> None:
     if not train_npz.exists() or not val_npz.exists():
         raise FileNotFoundError(f"Missing composite dataset in {data_dir}. Run script 10 first.")
 
-    train_ds = CompositeISRJDataset(train_npz, normalize_x=True)
-    val_ds = CompositeISRJDataset(val_npz, normalize_x=True)
+    normalize_targets = bool(train_cfg.get("normalize_targets", False))
+    train_ds = CompositeISRJDataset(train_npz, normalize_x=True, normalize_targets=normalize_targets)
+    val_ds = CompositeISRJDataset(val_npz, normalize_x=True, normalize_targets=normalize_targets)
 
     train_loader = DataLoader(
         train_ds,
@@ -91,10 +94,32 @@ def main() -> None:
     )
 
     model = SepNet(model_cfg).to(device)
+    if args.init_ckpt:
+        ckpt = torch.load(args.init_ckpt, map_location="cpu", weights_only=False)
+        if args.init_partial:
+            dst = model.state_dict()
+            src = ckpt["model_state"]
+            loaded = 0
+            for k, v in src.items():
+                if k in dst and dst[k].shape == v.shape:
+                    dst[k] = v
+                    loaded += 1
+            model.load_state_dict(dst, strict=True)
+            print(f"Partial init loaded params: {loaded}")
+        else:
+            model.load_state_dict(ckpt["model_state"], strict=True)
     epochs = int(train_cfg["epochs_smoke"] if args.mode == "smoke" else train_cfg["epochs_formal"])
 
     dump_yaml(
-        {"mode": args.mode, "data": data_cfg, "model_sep": model_cfg, "train_sep": train_cfg},
+        {
+            "mode": args.mode,
+            "data": data_cfg,
+            "model_sep": model_cfg,
+            "train_sep": train_cfg,
+            "init_ckpt": args.init_ckpt,
+            "init_partial": bool(args.init_partial),
+            "normalize_targets": normalize_targets,
+        },
         run_dir / "config_dump.yaml",
     )
 

@@ -54,3 +54,9 @@ def test_composite_generator_shapes_and_rules() -> None:
     ts_ref = (d["NF"].astype(np.float32) + 1.0) * d["Tl_us"]
     max_err = float(np.max(np.abs(d["Ts_us"][active] - ts_ref[active]))) if np.any(active) else 0.0
     assert max_err <= 1e-6
+
+    # Active jammer slots must carry non-zero energy and non-empty gates.
+    jam_energy = np.mean(d["J"][:, :, 0, :] ** 2 + d["J"][:, :, 1, :] ** 2, axis=-1)
+    gate_count = np.sum(d["G"], axis=-1)
+    assert np.all(jam_energy[active] > 1e-10)
+    assert np.all(gate_count[active] > 0)

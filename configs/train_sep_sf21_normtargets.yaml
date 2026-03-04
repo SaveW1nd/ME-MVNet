@@ -1,0 +1,20 @@
+﻿train_sep:
+  seed: 20260304
+  batch_size: 48
+  num_workers: 0
+  epochs_smoke: 3
+  epochs_formal: 12
+  lr: 0.00005
+  weight_decay: 0.0001
+  grad_clip: 5.0
+  early_stop_patience: 5
+  amp: false
+  device: auto
+  normalize_targets: true
+  loss_sep:
+    w_bg: 0.05
+    w_sil: 0.20
+    w_orth: 0.40
+    w_bgtrue: 0.20
+    w_bgenv: 0.10
+    w_div: 0.10

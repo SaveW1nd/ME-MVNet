@@ -12,8 +12,17 @@ from .sisdr import si_sdr
 def compute_sep_loss(
     batch: dict[str, torch.Tensor],
     sep_out: dict[str, torch.Tensor],
+    loss_cfg: dict | None = None,
 ) -> dict[str, torch.Tensor]:
-    """Compute separation loss with PIT-jam + weighted background MSE."""
+    """Compute separation loss with PIT-jam + behavior-guided regularizers."""
+    loss_cfg = loss_cfg or {}
+    w_bg = float(loss_cfg.get("w_bg", 0.01))
+    w_sil = float(loss_cfg.get("w_sil", 0.2))
+    w_orth = float(loss_cfg.get("w_orth", 0.05))
+    w_div = float(loss_cfg.get("w_div", 0.0))
+    w_bgtrue = float(loss_cfg.get("w_bgtrue", 0.0))
+    w_bgenv = float(loss_cfg.get("w_bgenv", 0.0))
+
     j_hat = sep_out["j_hat"]  # (B,3,2,N)
     b_hat = sep_out["b_hat"]  # (B,2,N)
     j_true = batch["J"]  # (B,3,2,N)
@@ -23,16 +32,78 @@ def compute_sep_loss(
     perm, jam_cost = best_perm_from_pairwise(pair_cost)
     l_jam = jam_cost.mean()
 
+    j_true_aligned = align_true_by_perm(j_true, perm)
+    nf_true_aligned = align_true_by_perm(nf_true, perm)
+    inactive_mask = nf_true_aligned == 0
+    slot_energy = torch.mean(j_hat * j_hat, dim=(2, 3))  # (B,3)
+    mix_energy = torch.mean(batch["X"] * batch["X"], dim=(1, 2)).unsqueeze(1)  # (B,1)
+    slot_ratio = slot_energy / (mix_energy + 1e-8)
+    if torch.any(inactive_mask):
+        l_sil = slot_ratio[inactive_mask].mean()
+    else:
+        l_sil = torch.zeros((), device=j_hat.device, dtype=j_hat.dtype)
+
     b_true = batch["X"] - torch.sum(j_true, dim=1)
     l_bg_raw = F.mse_loss(b_hat, b_true)
-    l_bg = 0.1 * l_bg_raw
+    l_bg = w_bg * l_bg_raw
 
-    l_sep = l_jam + l_bg
+    b_norm = torch.sqrt(torch.sum(b_hat * b_hat, dim=(1, 2)) + 1e-8)  # (B,)
+    orth_terms = []
+    for k in range(3):
+        jk = j_hat[:, k, :, :]
+        dot_k = torch.sum(jk * b_hat, dim=(1, 2))
+        jk_norm = torch.sqrt(torch.sum(jk * jk, dim=(1, 2)) + 1e-8)
+        orth_terms.append(torch.abs(dot_k / (jk_norm * b_norm + 1e-8)))
+    l_orth = torch.stack(orth_terms, dim=1).mean()
+
+    bgtrue_terms = []
+    for k in range(3):
+        active_k = nf_true_aligned[:, k] > 0
+        if not torch.any(active_k):
+            continue
+        jt = j_true_aligned[:, k, :, :]
+        dot_t = torch.sum(jt * b_hat, dim=(1, 2))
+        jt_norm = torch.sqrt(torch.sum(jt * jt, dim=(1, 2)) + 1e-8)
+        corr_t = torch.abs(dot_t / (jt_norm * b_norm + 1e-8))
+        bgtrue_terms.append(corr_t[active_k])
+    if bgtrue_terms:
+        l_bgtrue = torch.cat(bgtrue_terms, dim=0).mean()
+    else:
+        l_bgtrue = torch.zeros((), device=j_hat.device, dtype=j_hat.dtype)
+
+    b_amp = torch.sqrt(torch.clamp(b_hat[:, 0] * b_hat[:, 0] + b_hat[:, 1] * b_hat[:, 1], min=1e-8))  # (B,N)
+    j_sum_true = torch.sum(j_true_aligned, dim=1)  # (B,2,N)
+    j_amp = torch.sqrt(torch.clamp(j_sum_true[:, 0] * j_sum_true[:, 0] + j_sum_true[:, 1] * j_sum_true[:, 1], min=1e-8))
+    b0 = b_amp - b_amp.mean(dim=1, keepdim=True)
+    j0 = j_amp - j_amp.mean(dim=1, keepdim=True)
+    num = torch.sum(b0 * j0, dim=1)
+    den = torch.sqrt(torch.sum(b0 * b0, dim=1) * torch.sum(j0 * j0, dim=1) + 1e-8)
+    l_bgenv = torch.abs(num / (den + 1e-8)).mean()
+
+    env = torch.sqrt(torch.clamp(j_hat[:, :, 0] * j_hat[:, :, 0] + j_hat[:, :, 1] * j_hat[:, :, 1], min=1e-8))
+    env_norm = env / torch.sqrt(torch.sum(env * env, dim=2, keepdim=True) + 1e-8)
+    c12 = torch.abs(torch.sum(env_norm[:, 0] * env_norm[:, 1], dim=1))
+    c13 = torch.abs(torch.sum(env_norm[:, 0] * env_norm[:, 2], dim=1))
+    c23 = torch.abs(torch.sum(env_norm[:, 1] * env_norm[:, 2], dim=1))
+    l_div = torch.mean((c12 + c13 + c23) / 3.0)
+
+    l_sep = l_jam + l_bg + w_sil * l_sil + w_orth * l_orth + w_div * l_div + w_bgtrue * l_bgtrue + w_bgenv * l_bgenv
     return {
         "L_sep": l_sep,
         "L_sep_jam": l_jam,
         "L_sep_bg": l_bg,
         "L_sep_bg_raw_mse": l_bg_raw,
+        "L_sep_sil": l_sil,
+        "L_sep_orth": l_orth,
+        "L_sep_bgtrue": l_bgtrue,
+        "L_sep_bgenv": l_bgenv,
+        "L_sep_div": l_div,
+        "w_bg": torch.tensor(w_bg, device=j_hat.device, dtype=j_hat.dtype),
+        "w_sil": torch.tensor(w_sil, device=j_hat.device, dtype=j_hat.dtype),
+        "w_orth": torch.tensor(w_orth, device=j_hat.device, dtype=j_hat.dtype),
+        "w_bgtrue": torch.tensor(w_bgtrue, device=j_hat.device, dtype=j_hat.dtype),
+        "w_bgenv": torch.tensor(w_bgenv, device=j_hat.device, dtype=j_hat.dtype),
+        "w_div": torch.tensor(w_div, device=j_hat.device, dtype=j_hat.dtype),
         "perm": perm,
     }
 

@@ -1,0 +1,12 @@
+C:\Users\PC\AppData\Local\Programs\Python\Python312\Lib\site-packages\torch\nn\modules\transformer.py:379: UserWarning: enable_nested_tensor is True, but self.use_nested_tensor is False because encoder_layer.norm_first was True
+  warnings.warn(
+2026-03-04 22:37:49,793 | INFO | Epoch 001 | train L=-5.57428 A_total=0.0096 NF_acc=0.4563 skip=0 | val L=-8.49893 A_total=0.0212 NF_acc=0.4253 skip=0
+2026-03-04 22:38:13,575 | INFO | Epoch 002 | train L=-8.60901 A_total=0.0319 NF_acc=0.5857 skip=0 | val L=-10.58675 A_total=0.0420 NF_acc=0.5803 skip=0
+2026-03-04 22:38:37,385 | INFO | Epoch 003 | train L=-10.22758 A_total=0.0697 NF_acc=0.6605 skip=0 | val L=-11.44847 A_total=0.0698 NF_acc=0.6493 skip=0
+2026-03-04 22:38:37,486 | INFO | Stage2 done. best_epoch=3 best_A_total=0.069775
+Run dir: runs\exp_joint_smoke_datafix_v1
+best_epoch: 3
+best_A_total: 0.06977504399418831
+elapsed_seconds: 72.23960947990417
+best_checkpoint: runs\exp_joint_smoke_datafix_v1\checkpoints\best.pt
+last_checkpoint: runs\exp_joint_smoke_datafix_v1\checkpoints\last.pt

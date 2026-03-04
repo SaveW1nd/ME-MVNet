@@ -47,6 +47,22 @@ def shift_right_zero_pad(x: np.ndarray, delay: int) -> np.ndarray:
     return out
 
 
+def _sample_safe_right_delay(mask: np.ndarray, rng: np.random.Generator) -> int:
+    """Sample right-shift delay while keeping at least one active sample in window.
+
+    With zero-pad shifting, unconstrained delay can move the whole jammer outside
+    the observation window, causing NF>0 labels with zero-energy jammer targets.
+    """
+    active_idx = np.flatnonzero(mask)
+    if active_idx.size == 0:
+        return 0
+    n = int(mask.shape[0])
+    max_delay = n - 1 - int(active_idx[-1])
+    if max_delay <= 0:
+        return 0
+    return int(rng.integers(0, max_delay + 1))
+
+
 def _sample_offset_with_cycle(
     rng: np.random.Generator,
     npulse: int,
@@ -113,9 +129,10 @@ def generate_one_jammer(
             j[st:ed] += sl[:valid]
             g[st:ed] = 1
 
-    delay = int(rng.integers(0, n))
-    j = shift_right_zero_pad(j, delay=delay)
-    g = shift_right_zero_pad(g, delay=delay)
+    delay = _sample_safe_right_delay(g, rng=rng)
+    if delay > 0:
+        j = shift_right_zero_pad(j, delay=delay)
+        g = shift_right_zero_pad(g, delay=delay)
 
     fd = float(rng.uniform(-0.2 * b, 0.2 * b))
     idx = np.arange(n, dtype=np.float64)

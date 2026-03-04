@@ -1,0 +1,8 @@
+﻿model_sep:
+  n_samples: 4000
+  encoder_channels: 256
+  encoder_kernel: 16
+  encoder_stride: 4
+  tcn_blocks: 12
+  tcn_dilation_cycle: 4
+  tcn_dropout: 0.05

@@ -1,0 +1,11 @@
+﻿model_sep:
+  n_samples: 4000
+  encoder_channels: 192
+  encoder_kernel: 16
+  encoder_stride: 4
+  tcn_blocks: 10
+  tcn_dilation_cycle: 4
+  tcn_dropout: 0.05
+  decoder_grouped: true
+  bg_dedicated: true
+  bg_residual_ratio: 0.2

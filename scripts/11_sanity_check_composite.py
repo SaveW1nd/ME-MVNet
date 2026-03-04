@@ -90,6 +90,19 @@ def _check_split(
             raise AssertionError(f"{name}: dual sample third Ts is not zero")
 
     active = nf > 0
+    jam_energy = np.mean(j[:, :, 0, :] ** 2 + j[:, :, 1, :] ** 2, axis=-1)
+    gate_count = np.sum(g, axis=-1)
+    zero_energy_active = np.logical_and(active, jam_energy <= 1e-10)
+    zero_gate_active = np.logical_and(active, gate_count <= 0)
+    n_active = int(np.sum(active))
+    n_zero_e = int(np.sum(zero_energy_active))
+    n_zero_g = int(np.sum(zero_gate_active))
+    print(f"{name} active slots: {n_active}, zero-energy active: {n_zero_e}, zero-gate active: {n_zero_g}")
+    if n_zero_e > 0:
+        raise AssertionError(f"{name}: active source has zero jammer energy ({n_zero_e}/{n_active})")
+    if n_zero_g > 0:
+        raise AssertionError(f"{name}: active source has empty gate ({n_zero_g}/{n_active})")
+
     ts_ref = (nf.astype(np.float32) + 1.0) * tl
     max_err = float(np.max(np.abs(ts[active] - ts_ref[active]))) if np.any(active) else 0.0
     print(f"{name} max |Ts-(NF+1)Tl| (active): {max_err:.3e}")
