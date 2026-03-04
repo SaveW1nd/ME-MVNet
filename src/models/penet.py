@@ -112,9 +112,11 @@ class MechanismBranchPE(nn.Module):
 
     @staticmethod
     def _extract_features(x: torch.Tensor) -> torch.Tensor:
-        amp = torch.sqrt(torch.clamp(x[:, 0] ** 2 + x[:, 1] ** 2, min=1e-12))
+        # Force feature extraction in float32 for autocast stability.
+        x = x.float()
+        amp = torch.sqrt(torch.clamp(x[:, 0] ** 2 + x[:, 1] ** 2, min=1e-8))
         mean = amp.mean(dim=1)
-        std = amp.std(dim=1)
+        std = amp.std(dim=1) + 1e-6
         max_v = amp.max(dim=1).values
         min_v = amp.min(dim=1).values
         median = amp.median(dim=1).values
@@ -122,11 +124,11 @@ class MechanismBranchPE(nn.Module):
         q25 = torch.quantile(amp, 0.25, dim=1)
         q75 = torch.quantile(amp, 0.75, dim=1)
         q90 = torch.quantile(amp, 0.90, dim=1)
-        rms = torch.sqrt((amp**2).mean(dim=1) + 1e-12)
-        crest = max_v / (rms + 1e-12)
+        rms = torch.sqrt((amp**2).mean(dim=1) + 1e-8)
+        crest = max_v / (rms + 1e-6)
         cen = amp - mean.unsqueeze(1)
-        skew = (cen**3).mean(dim=1) / (std**3 + 1e-12)
-        kurt = (cen**4).mean(dim=1) / (std**4 + 1e-12)
+        skew = (cen**3).mean(dim=1) / (std**3 + 1e-6)
+        kurt = (cen**4).mean(dim=1) / (std**4 + 1e-6)
         d1 = torch.diff(amp, dim=1)
         d1_mean = d1.mean(dim=1)
         d1_std = d1.std(dim=1)
@@ -155,12 +157,13 @@ class MechanismBranchPE(nn.Module):
         )
         lags = [16, 24, 32, 48, 64, 96, 128, 160, 192, 224, 256, 320, 384, 448, 512, 640]
         ac = []
-        power = (amp**2).mean(dim=1) + 1e-12
+        power = (amp**2).mean(dim=1) + 1e-8
         for lag in lags:
             lag = min(lag, amp.shape[1] - 1)
             ac.append((amp[:, :-lag] * amp[:, lag:]).mean(dim=1) / power)
         ac = torch.stack(ac, dim=1)
         feats = torch.cat([stats, ac], dim=1)
+        feats = torch.nan_to_num(feats, nan=0.0, posinf=0.0, neginf=0.0)
         if feats.shape[1] != 32:
             raise RuntimeError(f"Expected 32 features, got {feats.shape[1]}")
         return feats

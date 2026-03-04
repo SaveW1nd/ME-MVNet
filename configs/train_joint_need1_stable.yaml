@@ -1,0 +1,18 @@
+﻿train_joint:
+  seed: 20260304
+  batch_size: 48
+  num_workers: 0
+  epochs_smoke: 3
+  epochs_formal: 80
+  lr_sep: 0.0002
+  lr_pe: 0.0008
+  weight_decay: 0.0001
+  grad_clip: 5.0
+  early_stop_patience: 12
+  amp: false
+  device: auto
+
+loss:
+  w_sep: 1.0
+  w_param: 0.5
+  w_gate: 0.2

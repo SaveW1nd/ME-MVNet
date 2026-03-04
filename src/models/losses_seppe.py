@@ -13,7 +13,7 @@ def compute_sep_loss(
     batch: dict[str, torch.Tensor],
     sep_out: dict[str, torch.Tensor],
 ) -> dict[str, torch.Tensor]:
-    """Compute separation loss with PIT + background SI-SDR."""
+    """Compute separation loss with PIT-jam + weighted background MSE."""
     j_hat = sep_out["j_hat"]  # (B,3,2,N)
     b_hat = sep_out["b_hat"]  # (B,2,N)
     j_true = batch["J"]  # (B,3,2,N)
@@ -24,13 +24,15 @@ def compute_sep_loss(
     l_jam = jam_cost.mean()
 
     b_true = batch["X"] - torch.sum(j_true, dim=1)
-    l_bg = -si_sdr(b_hat, b_true).mean()
+    l_bg_raw = F.mse_loss(b_hat, b_true)
+    l_bg = 0.1 * l_bg_raw
 
     l_sep = l_jam + l_bg
     return {
         "L_sep": l_sep,
         "L_sep_jam": l_jam,
         "L_sep_bg": l_bg,
+        "L_sep_bg_raw_mse": l_bg_raw,
         "perm": perm,
     }
 

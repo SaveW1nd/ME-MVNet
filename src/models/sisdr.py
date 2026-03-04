@@ -36,4 +36,5 @@ def si_sdr(est: torch.Tensor, ref: torch.Tensor, eps: float = 1e-8) -> torch.Ten
     noise = est_f - proj
 
     ratio = (torch.sum(proj * proj, dim=1) + eps) / (torch.sum(noise * noise, dim=1) + eps)
-    return 10.0 * torch.log10(ratio + eps)
+    val = 10.0 * torch.log10(ratio + eps)
+    return torch.nan_to_num(val, nan=-60.0, posinf=60.0, neginf=-60.0)

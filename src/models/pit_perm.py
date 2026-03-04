@@ -45,6 +45,8 @@ def pairwise_sep_cost(
 
             active_cost = -si_sdr(est, ref)  # better -> smaller cost
             silence_cost = torch.mean(est * est, dim=(1, 2))
+            active_cost = torch.nan_to_num(active_cost, nan=1e3, posinf=1e3, neginf=-1e3)
+            silence_cost = torch.nan_to_num(silence_cost, nan=1e3, posinf=1e3, neginf=1e3)
             costs[:, k, j] = active * active_cost + (1.0 - active) * silence_cost
     return costs
 

@@ -67,6 +67,7 @@ def _run_epoch(
         "NF_acc": AverageMeter(),
         "A_total": AverageMeter(),
     }
+    skipped = 0
 
     for batch in loader:
         batch = _to_device(batch, device)
@@ -82,6 +83,12 @@ def _run_epoch(
                 losses = compute_joint_loss(batch=batch, out=out, loss_cfg=loss_cfg)
                 loss = losses["L_total"]
 
+            if not torch.isfinite(loss):
+                skipped += int(bsz)
+                if is_train:
+                    optimizer.zero_grad(set_to_none=True)
+                continue
+
             if is_train:
                 optimizer.zero_grad(set_to_none=True)
                 scaler.scale(loss).backward()
@@ -93,15 +100,25 @@ def _run_epoch(
 
         with torch.no_grad():
             nf_acc, a_total = _batch_scores(out=out, losses=losses)
+            nf_acc = torch.nan_to_num(nf_acc, nan=0.0, posinf=0.0, neginf=0.0)
+            a_total = torch.nan_to_num(a_total, nan=0.0, posinf=0.0, neginf=0.0)
             meters["NF_acc"].update(float(nf_acc.item()), n=bsz)
             meters["A_total"].update(float(a_total.item()), n=bsz)
-            meters["L_total"].update(float(losses["L_total"].item()), n=bsz)
-            meters["L_sep"].update(float(losses["L_sep"].item()), n=bsz)
-            meters["L_gate"].update(float(losses["L_gate"].item()), n=bsz)
-            meters["L_Tl"].update(float(losses["L_Tl"].item()), n=bsz)
-            meters["L_NF"].update(float(losses["L_NF"].item()), n=bsz)
+            meters["L_total"].update(
+                float(torch.nan_to_num(losses["L_total"], nan=0.0, posinf=0.0, neginf=0.0).item()),
+                n=bsz,
+            )
+            meters["L_sep"].update(float(torch.nan_to_num(losses["L_sep"], nan=0.0, posinf=0.0, neginf=0.0).item()), n=bsz)
+            meters["L_gate"].update(
+                float(torch.nan_to_num(losses["L_gate"], nan=0.0, posinf=0.0, neginf=0.0).item()),
+                n=bsz,
+            )
+            meters["L_Tl"].update(float(torch.nan_to_num(losses["L_Tl"], nan=0.0, posinf=0.0, neginf=0.0).item()), n=bsz)
+            meters["L_NF"].update(float(torch.nan_to_num(losses["L_NF"], nan=0.0, posinf=0.0, neginf=0.0).item()), n=bsz)
 
-    return {k: float(v.avg) for k, v in meters.items()}
+    out = {k: float(v.avg) for k, v in meters.items()}
+    out["N_skip"] = float(skipped)
+    return out
 
 
 def _save_ckpt(
@@ -193,14 +210,16 @@ def fit_seppe_joint(
         rec = {"epoch": epoch, "lr": optimizer.param_groups[0]["lr"], "train": train_m, "val": val_m}
         append_jsonl(metrics_path, rec)
         logger.info(
-            "Epoch %03d | train L=%.5f A_total=%.4f NF_acc=%.4f | val L=%.5f A_total=%.4f NF_acc=%.4f",
+            "Epoch %03d | train L=%.5f A_total=%.4f NF_acc=%.4f skip=%d | val L=%.5f A_total=%.4f NF_acc=%.4f skip=%d",
             epoch,
             train_m["L_total"],
             train_m["A_total"],
             train_m["NF_acc"],
+            int(train_m["N_skip"]),
             val_m["L_total"],
             val_m["A_total"],
             val_m["NF_acc"],
+            int(val_m["N_skip"]),
         )
 
         _save_ckpt(

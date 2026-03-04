@@ -69,6 +69,7 @@ def _run_epoch(
         "SI_SDR_jam": AverageMeter(),
         "SI_SDR_bg": AverageMeter(),
     }
+    skipped = 0
 
     for batch in loader:
         batch = _to_device(batch, device)
@@ -84,6 +85,12 @@ def _run_epoch(
                 losses = compute_sep_loss(batch=batch, sep_out=sep_out)
                 loss = losses["L_sep"]
 
+            if not torch.isfinite(loss):
+                skipped += int(bsz)
+                if is_train:
+                    optimizer.zero_grad(set_to_none=True)
+                continue
+
             if is_train:
                 optimizer.zero_grad(set_to_none=True)
                 scaler.scale(loss).backward()
@@ -95,13 +102,23 @@ def _run_epoch(
 
         with torch.no_grad():
             jam_sisdr, bg_sisdr = _compute_sep_quality(batch=batch, sep_out=sep_out, perm=losses["perm"])
+            jam_sisdr = torch.nan_to_num(jam_sisdr, nan=0.0, posinf=0.0, neginf=0.0)
+            bg_sisdr = torch.nan_to_num(bg_sisdr, nan=0.0, posinf=0.0, neginf=0.0)
             meters["SI_SDR_jam"].update(float(jam_sisdr.item()), n=bsz)
             meters["SI_SDR_bg"].update(float(bg_sisdr.item()), n=bsz)
-            meters["L_sep"].update(float(losses["L_sep"].item()), n=bsz)
-            meters["L_sep_jam"].update(float(losses["L_sep_jam"].item()), n=bsz)
-            meters["L_sep_bg"].update(float(losses["L_sep_bg"].item()), n=bsz)
+            meters["L_sep"].update(float(torch.nan_to_num(losses["L_sep"], nan=0.0, posinf=0.0, neginf=0.0).item()), n=bsz)
+            meters["L_sep_jam"].update(
+                float(torch.nan_to_num(losses["L_sep_jam"], nan=0.0, posinf=0.0, neginf=0.0).item()),
+                n=bsz,
+            )
+            meters["L_sep_bg"].update(
+                float(torch.nan_to_num(losses["L_sep_bg"], nan=0.0, posinf=0.0, neginf=0.0).item()),
+                n=bsz,
+            )
 
-    return {k: float(v.avg) for k, v in meters.items()}
+    out = {k: float(v.avg) for k, v in meters.items()}
+    out["N_skip"] = float(skipped)
+    return out
 
 
 def _save_ckpt(
@@ -184,12 +201,14 @@ def fit_sepnet(
         rec = {"epoch": epoch, "lr": optimizer.param_groups[0]["lr"], "train": train_m, "val": val_m}
         append_jsonl(metrics_path, rec)
         logger.info(
-            "Epoch %03d | train L_sep=%.5f SIjam=%.3f | val L_sep=%.5f SIjam=%.3f",
+            "Epoch %03d | train L_sep=%.5f SIjam=%.3f skip=%d | val L_sep=%.5f SIjam=%.3f skip=%d",
             epoch,
             train_m["L_sep"],
             train_m["SI_SDR_jam"],
+            int(train_m["N_skip"]),
             val_m["L_sep"],
             val_m["SI_SDR_jam"],
+            int(val_m["N_skip"]),
         )
 
         _save_ckpt(

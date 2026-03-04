@@ -46,7 +46,9 @@ class SepNet(nn.Module):
 
         c, l = h.shape[1], h.shape[2]
         mask_logits = self.mask_proj(h).view(bsz, 4, c, l)
-        masks = torch.sigmoid(mask_logits)
+        # Source-competitive masks: each time-frequency location is assigned
+        # across 4 outputs (3 jammer + 1 background).
+        masks = torch.softmax(mask_logits, dim=1)
 
         h_src = masks * h.unsqueeze(1)  # (B,4,C,L)
         h_src = h_src.reshape(bsz, 4 * c, l)
@@ -59,14 +61,21 @@ class SepNet(nn.Module):
             decoded = nn.functional.pad(decoded, (0, pad_len))
 
         sources = decoded.view(bsz, 4, 2, n)  # (B,4,2,N)
-        j_hat = sources[:, :3, :, :]
-        b_hat = sources[:, 3, :, :]
 
         # Mixture consistency: sum(j_hat)+b_hat == x
-        mix_rec = torch.sum(j_hat, dim=1) + b_hat
+        mix_rec = torch.sum(sources, dim=1)
         residual = x - mix_rec
-        j_hat = j_hat + residual.unsqueeze(1) / 4.0
-        b_hat = b_hat + residual / 4.0
+
+        # Residual is distributed by source energy instead of uniform split.
+        src_energy = torch.mean(sources * sources, dim=(2, 3))  # (B,4)
+        src_energy = torch.nan_to_num(src_energy, nan=0.0, posinf=1e6, neginf=0.0)
+        src_weight = src_energy / (torch.sum(src_energy, dim=1, keepdim=True) + 1e-8)
+        src_weight = torch.nan_to_num(src_weight, nan=0.25, posinf=0.25, neginf=0.25)
+        sources = sources + residual.unsqueeze(1) * src_weight.unsqueeze(-1).unsqueeze(-1)
+        sources = torch.nan_to_num(sources, nan=0.0, posinf=1e4, neginf=-1e4)
+
+        j_hat = sources[:, :3, :, :]
+        b_hat = sources[:, 3, :, :]
 
         return {
             "j_hat": j_hat,
