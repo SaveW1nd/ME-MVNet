@@ -1,0 +1,52 @@
+mode: formal
+data:
+  dataset:
+    name: cisrj_seppe_v1
+    output_dir: data/raw/cisrj_seppe_v1
+    seed: 20260304
+  signal:
+    fs: 100000000.0
+    tp: 1.5e-05
+    pri: 4.0e-05
+    b: 10000000.0
+    n: 4000
+  grid:
+    nf_values:
+    - 1
+    - 2
+    - 3
+    tl_us_min: 1.0
+    tl_us_max: 3.0
+    jnr_db_min: -10.0
+    jnr_db_max: 20.0
+    k_active_dual_ratio: 0.5
+  background:
+    echo_snr_db: 0.0
+    noise_power: 1.0
+  split:
+    train: 5000
+    val: 1000
+    test: 1000
+  sanity:
+    ts_tl_eps: 1e-6
+model_sep:
+  model_sep:
+    n_samples: 4000
+    encoder_channels: 128
+    encoder_kernel: 16
+    encoder_stride: 4
+    tcn_blocks: 6
+    tcn_dilation_cycle: 3
+    tcn_dropout: 0.1
+train_sep:
+  seed: 20260304
+  batch_size: 64
+  num_workers: 0
+  epochs_smoke: 3
+  epochs_formal: 50
+  lr: 0.001
+  weight_decay: 0.0001
+  grad_clip: 5.0
+  early_stop_patience: 10
+  amp: true
+  device: auto
