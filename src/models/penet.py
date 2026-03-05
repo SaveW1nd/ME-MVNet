@@ -1,4 +1,4 @@
-"""Parameter estimation network (PE-Net) for separated jammer sources."""
+﻿"""Parameter estimation network (PE-Net) for separated jammer sources."""
 
 from __future__ import annotations
 
@@ -172,6 +172,61 @@ class MechanismBranchPE(nn.Module):
         return self.mlp(self._extract_features(x))
 
 
+class PeriodicBranchPE(nn.Module):
+    """Periodic evidence branch used as one extra conditioning feature."""
+
+    def __init__(self, cfg: dict, n_samples: int) -> None:
+        super().__init__()
+        self.n_samples = int(n_samples)
+        self.max_lag = int(cfg.get("max_lag", 1400))
+        self.max_lag = min(max(self.max_lag, 64), self.n_samples - 1)
+        out_dim = int(cfg.get("out_dim", 64))
+        c1 = int(cfg.get("conv_channels_1", 32))
+        c2 = int(cfg.get("conv_channels_2", 64))
+
+        self.conv = nn.Sequential(
+            ConvBNAct1d(2, c1, k=7, s=2),
+            ConvBNAct1d(c1, c2, k=5, s=2),
+            nn.Conv1d(c2, out_dim, kernel_size=3, padding=1),
+            nn.GELU(),
+            nn.AdaptiveAvgPool1d(1),
+        )
+
+    @staticmethod
+    def _next_pow2(v: int) -> int:
+        out = 1
+        while out < v:
+            out <<= 1
+        return out
+
+    def _autocorr_norm(self, sig: torch.Tensor) -> torch.Tensor:
+        """Normalized autocorrelation for (B,N) -> (B,max_lag+1)."""
+        bsz, n = sig.shape
+        x = sig.float()
+        x = x - x.mean(dim=1, keepdim=True)
+        fft_len = self._next_pow2(2 * n)
+        spec = torch.fft.rfft(x, n=fft_len, dim=1)
+        ac = torch.fft.irfft(spec * torch.conj(spec), n=fft_len, dim=1)[:, : self.max_lag + 1]
+        denom = torch.clamp(ac[:, :1], min=1e-6)
+        ac = ac / denom
+        return torch.nan_to_num(ac, nan=0.0, posinf=0.0, neginf=0.0)
+
+    def forward(self, x: torch.Tensor, g_logit: torch.Tensor) -> torch.Tensor:
+        if x.ndim != 3 or x.shape[1] != 2:
+            raise ValueError(f"Expected x (B,2,N), got {tuple(x.shape)}")
+        if g_logit.ndim != 2:
+            raise ValueError(f"Expected g_logit (B,N), got {tuple(g_logit.shape)}")
+
+        amp = torch.sqrt(torch.clamp(x[:, 0] * x[:, 0] + x[:, 1] * x[:, 1], min=1e-8))
+        g = torch.sigmoid(g_logit)
+        weighted = amp * g
+
+        ac_gate = self._autocorr_norm(g)
+        ac_weighted = self._autocorr_norm(weighted)
+        ac_pair = torch.stack([ac_gate[:, 1:], ac_weighted[:, 1:]], dim=1)  # (B,2,L-1), drop lag=0
+        return self.conv(ac_pair).squeeze(-1)
+
+
 class PENet(nn.Module):
     """PE-Net shared across 3 separated jammer slots."""
 
@@ -189,6 +244,14 @@ class PENet(nn.Module):
             feature_dim=int(m["mech_branch"]["feature_dim"]),
             hidden_dim=int(m["mech_branch"]["hidden_dim"]),
         )
+        periodic_cfg = dict(m.get("periodic_branch", {}))
+        self.use_periodic = bool(periodic_cfg.get("enabled", False))
+        periodic_dim = int(periodic_cfg.get("out_dim", 0)) if self.use_periodic else 0
+        if self.use_periodic and periodic_dim > 0:
+            self.periodic = PeriodicBranchPE(periodic_cfg, n_samples=self.n_samples)
+        else:
+            self.periodic = None
+            periodic_dim = 0
 
         raw_dim = int(m["raw_branch"]["stem_channels"][1])
         tf_dim = int(m["tf_branch"]["channels"][-1])
@@ -197,6 +260,7 @@ class PENet(nn.Module):
             seq_dim=raw_dim,
             tf_dim=tf_dim,
             mech_dim=mech_dim,
+            periodic_dim=periodic_dim,
             num_nf_classes=len(self.nf_values),
             cfg=dict(m.get("gateformer", {})),
         )
@@ -212,11 +276,13 @@ class PENet(nn.Module):
 
         z_tf = self.tf(x)
         z_mech = self.mech(x)
+        z_periodic = self.periodic(x=x, g_logit=g_logit) if self.periodic is not None else None
         param_out = self.gateformer(
             seq_feat=seq_feat.transpose(1, 2),
             g_logit=g_logit,
             z_tf=z_tf,
             z_mech=z_mech,
+            z_periodic=z_periodic,
         )
         tl_hat_us = param_out["Tl_hat_us"]
         nf_logits = param_out["NF_logits"]

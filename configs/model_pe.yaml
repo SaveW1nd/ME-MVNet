@@ -18,6 +18,13 @@ model_pe:
     feature_dim: 32
     hidden_dim: 64
 
+  periodic_branch:
+    enabled: true
+    out_dim: 64
+    max_lag: 1400
+    conv_channels_1: 32
+    conv_channels_2: 64
+
   gate_head:
     hidden_dim: 64
 

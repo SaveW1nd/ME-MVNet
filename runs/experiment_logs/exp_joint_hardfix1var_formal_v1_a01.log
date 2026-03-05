@@ -1,0 +1,81 @@
+[2026-03-06T01:05:45] launch: C:\Users\PC\AppData\Local\Programs\Python\Python312\python.exe scripts/13_train_seppe_joint.py --sep-ckpt runs/exp_sep_formal_datafix_v1/checkpoints/best.pt --data-config configs/data_composite.yaml --sep-config configs/model_sep.yaml --pe-config configs/model_pe.yaml --train-config E:\isrj_param_estimation\runs\tmp_monitor\exp_joint_hardfix1var_formal_v1_a01_train_joint.yaml --mode formal --exp-name exp_joint_hardfix1var_formal_v1_a01
+C:\Users\PC\AppData\Local\Programs\Python\Python312\Lib\site-packages\torch\nn\modules\transformer.py:379: UserWarning: enable_nested_tensor is True, but self.use_nested_tensor is False because encoder_layer.norm_first was True
+  warnings.warn(
+2026-03-06 01:06:24,084 | INFO | Epoch 001 | train L=-4.70400 A_total=0.0111 NF_acc=0.4531 skip=0 | val L=-7.11367 A_total=0.0143 NF_acc=0.5337 skip=0
+2026-03-06 01:06:58,726 | INFO | Epoch 002 | train L=-7.67792 A_total=0.0458 NF_acc=0.5748 skip=0 | val L=-9.11243 A_total=0.0560 NF_acc=0.5560 skip=0
+2026-03-06 01:07:33,367 | INFO | Epoch 003 | train L=-9.47487 A_total=0.0923 NF_acc=0.6358 skip=0 | val L=-10.63731 A_total=0.0388 NF_acc=0.5350 skip=0
+2026-03-06 01:08:07,993 | INFO | Epoch 004 | train L=-10.63556 A_total=0.1387 NF_acc=0.6845 skip=0 | val L=-10.63456 A_total=0.1025 NF_acc=0.6620 skip=0
+2026-03-06 01:08:42,674 | INFO | Epoch 005 | train L=-11.52206 A_total=0.1578 NF_acc=0.6965 skip=0 | val L=-11.53779 A_total=0.0635 NF_acc=0.5940 skip=0
+2026-03-06 01:09:17,353 | INFO | Epoch 006 | train L=-12.30390 A_total=0.1891 NF_acc=0.7209 skip=0 | val L=-12.75234 A_total=0.1388 NF_acc=0.7160 skip=0
+2026-03-06 01:09:52,090 | INFO | Epoch 007 | train L=-12.90241 A_total=0.1965 NF_acc=0.7338 skip=0 | val L=-11.83769 A_total=0.0986 NF_acc=0.6273 skip=0
+2026-03-06 01:10:26,743 | INFO | Epoch 008 | train L=-13.61566 A_total=0.2306 NF_acc=0.7434 skip=0 | val L=-13.73946 A_total=0.1617 NF_acc=0.6643 skip=0
+2026-03-06 01:11:01,413 | INFO | Epoch 009 | train L=-14.19433 A_total=0.2254 NF_acc=0.7539 skip=0 | val L=-14.27904 A_total=0.1078 NF_acc=0.7120 skip=0
+2026-03-06 01:11:36,097 | INFO | Epoch 010 | train L=-14.62375 A_total=0.2472 NF_acc=0.7561 skip=0 | val L=-14.36615 A_total=0.1768 NF_acc=0.7107 skip=0
+2026-03-06 01:12:10,760 | INFO | Epoch 011 | train L=-15.18880 A_total=0.2390 NF_acc=0.7717 skip=0 | val L=-15.23488 A_total=0.1798 NF_acc=0.6323 skip=0
+2026-03-06 01:12:45,483 | INFO | Epoch 012 | train L=-15.81939 A_total=0.2746 NF_acc=0.7778 skip=0 | val L=-15.53539 A_total=0.1001 NF_acc=0.7560 skip=0
+2026-03-06 01:13:20,127 | INFO | Epoch 013 | train L=-16.09036 A_total=0.2734 NF_acc=0.7825 skip=0 | val L=-15.49542 A_total=0.2532 NF_acc=0.7613 skip=0
+2026-03-06 01:13:54,766 | INFO | Epoch 014 | train L=-16.54120 A_total=0.2810 NF_acc=0.7909 skip=0 | val L=-15.86246 A_total=0.0811 NF_acc=0.7220 skip=0
+2026-03-06 01:14:29,373 | INFO | Epoch 015 | train L=-16.97058 A_total=0.2846 NF_acc=0.7965 skip=0 | val L=-15.57570 A_total=0.1716 NF_acc=0.7657 skip=0
+2026-03-06 01:15:04,031 | INFO | Epoch 016 | train L=-17.32550 A_total=0.3123 NF_acc=0.7997 skip=0 | val L=-16.07228 A_total=0.2577 NF_acc=0.7683 skip=0
+2026-03-06 01:15:38,708 | INFO | Epoch 017 | train L=-17.81996 A_total=0.3057 NF_acc=0.8119 skip=0 | val L=-17.82948 A_total=0.2016 NF_acc=0.7433 skip=0
+2026-03-06 01:16:13,362 | INFO | Epoch 018 | train L=-18.09422 A_total=0.3229 NF_acc=0.8134 skip=0 | val L=-18.28348 A_total=0.2801 NF_acc=0.7827 skip=0
+2026-03-06 01:16:48,022 | INFO | Epoch 019 | train L=-18.53228 A_total=0.3443 NF_acc=0.8225 skip=0 | val L=-18.30384 A_total=0.2909 NF_acc=0.7817 skip=0
+2026-03-06 01:17:22,677 | INFO | Epoch 020 | train L=-18.83609 A_total=0.3192 NF_acc=0.8212 skip=0 | val L=-17.53623 A_total=0.3358 NF_acc=0.7830 skip=0
+2026-03-06 01:17:57,318 | INFO | Epoch 021 | train L=-19.06920 A_total=0.3455 NF_acc=0.8273 skip=0 | val L=-18.42960 A_total=0.3068 NF_acc=0.8033 skip=0
+2026-03-06 01:18:31,965 | INFO | Epoch 022 | train L=-19.47210 A_total=0.3494 NF_acc=0.8353 skip=0 | val L=-17.54056 A_total=0.2954 NF_acc=0.7643 skip=0
+2026-03-06 01:19:06,572 | INFO | Epoch 023 | train L=-19.72509 A_total=0.3588 NF_acc=0.8390 skip=0 | val L=-19.01624 A_total=0.2820 NF_acc=0.7930 skip=0
+2026-03-06 01:19:41,162 | INFO | Epoch 024 | train L=-20.04989 A_total=0.3476 NF_acc=0.8441 skip=0 | val L=-19.52300 A_total=0.2397 NF_acc=0.7993 skip=0
+2026-03-06 01:20:15,758 | INFO | Epoch 025 | train L=-20.49123 A_total=0.3666 NF_acc=0.8481 skip=0 | val L=-19.01806 A_total=0.2970 NF_acc=0.7677 skip=0
+2026-03-06 01:20:50,395 | INFO | Epoch 026 | train L=-20.61094 A_total=0.3651 NF_acc=0.8541 skip=0 | val L=-18.95207 A_total=0.2610 NF_acc=0.7687 skip=0
+2026-03-06 01:21:25,021 | INFO | Epoch 027 | train L=-21.03902 A_total=0.3958 NF_acc=0.8549 skip=0 | val L=-19.82047 A_total=0.2971 NF_acc=0.7557 skip=0
+2026-03-06 01:21:59,654 | INFO | Epoch 028 | train L=-21.32713 A_total=0.3673 NF_acc=0.8571 skip=0 | val L=-19.56637 A_total=0.3135 NF_acc=0.7827 skip=0
+2026-03-06 01:22:34,288 | INFO | Epoch 029 | train L=-21.51598 A_total=0.3770 NF_acc=0.8631 skip=0 | val L=-20.31639 A_total=0.3178 NF_acc=0.8080 skip=0
+2026-03-06 01:23:08,958 | INFO | Epoch 030 | train L=-21.79971 A_total=0.4029 NF_acc=0.8695 skip=0 | val L=-20.75405 A_total=0.3843 NF_acc=0.7963 skip=0
+2026-03-06 01:23:43,631 | INFO | Epoch 031 | train L=-22.12062 A_total=0.4194 NF_acc=0.8773 skip=0 | val L=-20.12984 A_total=0.3572 NF_acc=0.7920 skip=0
+2026-03-06 01:24:18,305 | INFO | Epoch 032 | train L=-22.21929 A_total=0.4010 NF_acc=0.8731 skip=0 | val L=-19.86037 A_total=0.3059 NF_acc=0.8010 skip=0
+2026-03-06 01:24:52,955 | INFO | Epoch 033 | train L=-22.57631 A_total=0.4273 NF_acc=0.8803 skip=0 | val L=-21.14372 A_total=0.3908 NF_acc=0.8060 skip=0
+2026-03-06 01:25:27,653 | INFO | Epoch 034 | train L=-22.94890 A_total=0.4354 NF_acc=0.8877 skip=0 | val L=-20.54707 A_total=0.3945 NF_acc=0.7937 skip=0
+2026-03-06 01:26:02,339 | INFO | Epoch 035 | train L=-23.05689 A_total=0.4260 NF_acc=0.8895 skip=0 | val L=-20.99615 A_total=0.3561 NF_acc=0.7863 skip=0
+2026-03-06 01:26:37,063 | INFO | Epoch 036 | train L=-23.39343 A_total=0.4435 NF_acc=0.8887 skip=0 | val L=-21.72782 A_total=0.3999 NF_acc=0.8150 skip=0
+2026-03-06 01:27:11,782 | INFO | Epoch 037 | train L=-23.49189 A_total=0.4332 NF_acc=0.8930 skip=0 | val L=-21.30725 A_total=0.4530 NF_acc=0.7960 skip=0
+2026-03-06 01:27:46,497 | INFO | Epoch 038 | train L=-23.70907 A_total=0.4558 NF_acc=0.9012 skip=0 | val L=-21.80650 A_total=0.4020 NF_acc=0.7823 skip=0
+2026-03-06 01:28:21,189 | INFO | Epoch 039 | train L=-23.95405 A_total=0.4513 NF_acc=0.9013 skip=0 | val L=-22.49327 A_total=0.4442 NF_acc=0.8157 skip=0
+2026-03-06 01:28:55,873 | INFO | Epoch 040 | train L=-24.35278 A_total=0.4511 NF_acc=0.9127 skip=0 | val L=-22.46612 A_total=0.4048 NF_acc=0.8133 skip=0
+2026-03-06 01:29:30,628 | INFO | Epoch 041 | train L=-24.44956 A_total=0.4858 NF_acc=0.9137 skip=0 | val L=-20.01744 A_total=0.3921 NF_acc=0.7953 skip=0
+2026-03-06 01:30:05,386 | INFO | Epoch 042 | train L=-24.52509 A_total=0.4917 NF_acc=0.9150 skip=0 | val L=-22.01044 A_total=0.3353 NF_acc=0.8077 skip=0
+2026-03-06 01:30:40,202 | INFO | Epoch 043 | train L=-24.88399 A_total=0.4928 NF_acc=0.9183 skip=0 | val L=-21.59714 A_total=0.4454 NF_acc=0.8097 skip=0
+2026-03-06 01:31:14,994 | INFO | Epoch 044 | train L=-25.02661 A_total=0.5134 NF_acc=0.9224 skip=0 | val L=-21.71666 A_total=0.3953 NF_acc=0.8127 skip=0
+2026-03-06 01:31:49,853 | INFO | Epoch 045 | train L=-25.24739 A_total=0.5123 NF_acc=0.9249 skip=0 | val L=-22.28735 A_total=0.3598 NF_acc=0.8083 skip=0
+2026-03-06 01:32:24,813 | INFO | Epoch 046 | train L=-25.55694 A_total=0.5313 NF_acc=0.9329 skip=0 | val L=-22.71321 A_total=0.3972 NF_acc=0.8033 skip=0
+2026-03-06 01:32:59,587 | INFO | Epoch 047 | train L=-25.74717 A_total=0.5140 NF_acc=0.9323 skip=0 | val L=-22.52122 A_total=0.4749 NF_acc=0.8183 skip=0
+2026-03-06 01:33:34,334 | INFO | Epoch 048 | train L=-25.92911 A_total=0.5105 NF_acc=0.9319 skip=0 | val L=-22.58333 A_total=0.4285 NF_acc=0.8137 skip=0
+2026-03-06 01:34:09,181 | INFO | Epoch 049 | train L=-26.22266 A_total=0.5413 NF_acc=0.9406 skip=0 | val L=-22.13479 A_total=0.4423 NF_acc=0.7783 skip=0
+2026-03-06 01:34:43,955 | INFO | Epoch 050 | train L=-26.32726 A_total=0.5382 NF_acc=0.9425 skip=0 | val L=-22.17144 A_total=0.4358 NF_acc=0.8017 skip=0
+2026-03-06 01:35:18,795 | INFO | Epoch 051 | train L=-26.42309 A_total=0.5363 NF_acc=0.9445 skip=0 | val L=-23.15073 A_total=0.3711 NF_acc=0.7913 skip=0
+2026-03-06 01:35:53,624 | INFO | Epoch 052 | train L=-26.72261 A_total=0.5591 NF_acc=0.9479 skip=0 | val L=-23.06815 A_total=0.4052 NF_acc=0.8013 skip=0
+2026-03-06 01:36:28,489 | INFO | Epoch 053 | train L=-26.79532 A_total=0.5731 NF_acc=0.9527 skip=0 | val L=-22.97930 A_total=0.4353 NF_acc=0.8150 skip=0
+2026-03-06 01:37:03,338 | INFO | Epoch 054 | train L=-27.01716 A_total=0.5699 NF_acc=0.9526 skip=0 | val L=-23.35847 A_total=0.4622 NF_acc=0.7827 skip=0
+2026-03-06 01:37:38,124 | INFO | Epoch 055 | train L=-27.19667 A_total=0.5925 NF_acc=0.9568 skip=0 | val L=-22.73598 A_total=0.4343 NF_acc=0.7833 skip=0
+2026-03-06 01:38:12,972 | INFO | Epoch 056 | train L=-27.38201 A_total=0.5937 NF_acc=0.9565 skip=0 | val L=-23.43441 A_total=0.4722 NF_acc=0.7967 skip=0
+2026-03-06 01:38:47,806 | INFO | Epoch 057 | train L=-27.45275 A_total=0.5837 NF_acc=0.9584 skip=0 | val L=-23.53037 A_total=0.4805 NF_acc=0.8063 skip=0
+2026-03-06 01:39:22,643 | INFO | Epoch 058 | train L=-27.59348 A_total=0.6083 NF_acc=0.9649 skip=0 | val L=-23.31977 A_total=0.4964 NF_acc=0.8053 skip=0
+2026-03-06 01:39:57,524 | INFO | Epoch 059 | train L=-27.80600 A_total=0.5996 NF_acc=0.9671 skip=0 | val L=-23.39240 A_total=0.4788 NF_acc=0.7913 skip=0
+2026-03-06 01:40:32,409 | INFO | Epoch 060 | train L=-27.90778 A_total=0.6151 NF_acc=0.9657 skip=0 | val L=-23.42401 A_total=0.4693 NF_acc=0.8067 skip=0
+2026-03-06 01:41:07,212 | INFO | Epoch 061 | train L=-28.05725 A_total=0.6121 NF_acc=0.9696 skip=0 | val L=-23.37152 A_total=0.4914 NF_acc=0.8027 skip=0
+2026-03-06 01:41:42,042 | INFO | Epoch 062 | train L=-28.20053 A_total=0.6286 NF_acc=0.9711 skip=0 | val L=-23.52563 A_total=0.4848 NF_acc=0.7960 skip=0
+2026-03-06 01:42:16,857 | INFO | Epoch 063 | train L=-28.31235 A_total=0.6249 NF_acc=0.9726 skip=0 | val L=-23.35389 A_total=0.4647 NF_acc=0.7920 skip=0
+2026-03-06 01:42:51,714 | INFO | Epoch 064 | train L=-28.46054 A_total=0.6279 NF_acc=0.9747 skip=0 | val L=-23.52728 A_total=0.4634 NF_acc=0.7900 skip=0
+2026-03-06 01:43:26,603 | INFO | Epoch 065 | train L=-28.56756 A_total=0.6405 NF_acc=0.9744 skip=0 | val L=-23.44327 A_total=0.4661 NF_acc=0.7860 skip=0
+2026-03-06 01:44:01,463 | INFO | Epoch 066 | train L=-28.62001 A_total=0.6394 NF_acc=0.9749 skip=0 | val L=-23.63399 A_total=0.4886 NF_acc=0.7870 skip=0
+2026-03-06 01:44:36,148 | INFO | Epoch 067 | train L=-28.67400 A_total=0.6422 NF_acc=0.9783 skip=0 | val L=-23.44809 A_total=0.4714 NF_acc=0.7827 skip=0
+2026-03-06 01:45:10,924 | INFO | Epoch 068 | train L=-28.83939 A_total=0.6476 NF_acc=0.9779 skip=0 | val L=-23.65257 A_total=0.4897 NF_acc=0.7937 skip=0
+2026-03-06 01:45:45,667 | INFO | Epoch 069 | train L=-28.86790 A_total=0.6526 NF_acc=0.9801 skip=0 | val L=-23.65925 A_total=0.4609 NF_acc=0.7937 skip=0
+2026-03-06 01:46:20,462 | INFO | Epoch 070 | train L=-28.94945 A_total=0.6547 NF_acc=0.9799 skip=0 | val L=-23.34722 A_total=0.4763 NF_acc=0.7843 skip=0
+2026-03-06 01:46:20,483 | INFO | Early stopping at epoch 70
+2026-03-06 01:46:20,483 | INFO | Stage2 done. best_epoch=58 best_A_total=0.496444
+Run dir: runs\exp_joint_hardfix1var_formal_v1_a01
+best_epoch: 58
+best_A_total: 0.4964436531066895
+elapsed_seconds: 2431.6251170635223
+best_checkpoint: runs\exp_joint_hardfix1var_formal_v1_a01\checkpoints\best.pt
+last_checkpoint: runs\exp_joint_hardfix1var_formal_v1_a01\checkpoints\last.pt

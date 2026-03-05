@@ -1,0 +1,39 @@
+{
+  "num_samples": 500,
+  "num_active_sources": 1000,
+  "num_sep_fail_sources": 22,
+  "sep_fail_ratio": 0.022,
+  "num_samples_with_sep_fail": 21,
+  "sample_sep_fail_ratio": 0.042,
+  "mean_sisdri_db_active": 17.64107581285846,
+  "mean_sisdri_db_bad": -5.627204638071806,
+  "median_sisdri_db_bad": -3.237934311286567,
+  "bad_reason_primary_counts": {
+    "sep_worse_than_mix": 14,
+    "nf_miss_to_0": 8
+  },
+  "bad_by_nf_true": [
+    {
+      "nf_true": 1,
+      "size": 12
+    },
+    {
+      "nf_true": 2,
+      "size": 7
+    },
+    {
+      "nf_true": 3,
+      "size": 3
+    }
+  ],
+  "bad_by_k_active": [
+    {
+      "k_active": 2,
+      "size": 22
+    }
+  ],
+  "notes": [
+    "is_sep_fail means SI-SDRi<0 for active source",
+    "reason_primary is selected by priority from reason_flags"
+  ]
+}

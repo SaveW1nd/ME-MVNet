@@ -1,0 +1,10 @@
+nf_true,nf_pred,count,run
+1,0,68,hardfix_baseline
+1,2,45,hardfix_baseline
+1,3,25,hardfix_baseline
+2,0,40,hardfix_baseline
+2,1,34,hardfix_baseline
+2,3,43,hardfix_baseline
+3,0,36,hardfix_baseline
+3,1,18,hardfix_baseline
+3,2,92,hardfix_baseline

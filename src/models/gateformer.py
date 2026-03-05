@@ -1,4 +1,4 @@
-"""GateFormer: transformer-based parameter reader from gate periodicity."""
+﻿"""GateFormer: transformer-based parameter reader from gate periodicity."""
 
 from __future__ import annotations
 
@@ -15,6 +15,7 @@ class GateFormer(nn.Module):
         seq_dim: int,
         tf_dim: int,
         mech_dim: int,
+        periodic_dim: int,
         num_nf_classes: int,
         cfg: dict | None = None,
     ) -> None:
@@ -22,6 +23,7 @@ class GateFormer(nn.Module):
         cfg = cfg or {}
 
         self.seq_dim = int(seq_dim)
+        self.periodic_dim = int(periodic_dim)
         self.d_model = int(cfg.get("d_model", self.seq_dim))
         self.num_layers = int(cfg.get("num_layers", 2))
         self.num_heads = int(cfg.get("num_heads", 4))
@@ -46,7 +48,7 @@ class GateFormer(nn.Module):
         self.enc_norm = nn.LayerNorm(self.d_model)
 
         self.cond_proj = nn.Sequential(
-            nn.Linear(int(tf_dim) + int(mech_dim), self.d_model),
+            nn.Linear(int(tf_dim) + int(mech_dim) + self.periodic_dim, self.d_model),
             nn.GELU(),
             nn.Dropout(self.dropout),
         )
@@ -96,6 +98,7 @@ class GateFormer(nn.Module):
         g_logit: torch.Tensor,
         z_tf: torch.Tensor,
         z_mech: torch.Tensor,
+        z_periodic: torch.Tensor | None = None,
     ) -> dict[str, torch.Tensor]:
         # seq_feat: (B,L,D), g_logit: (B,N)
         if seq_feat.ndim != 3:
@@ -111,7 +114,9 @@ class GateFormer(nn.Module):
         u = self.encoder(u)
         u = self.enc_norm(u)
 
-        cond = self.cond_proj(torch.cat([z_tf, z_mech], dim=1))
+        if z_periodic is None:
+            z_periodic = z_mech.new_zeros((z_mech.shape[0], self.periodic_dim))
+        cond = self.cond_proj(torch.cat([z_tf, z_mech, z_periodic], dim=1))
         q = self.query_tokens.unsqueeze(0).expand(bsz, -1, -1) + cond.unsqueeze(1)
         q_attn, _ = self.cross_attn(query=q, key=u, value=u, need_weights=False)
         q = self.query_norm1(q + q_attn)

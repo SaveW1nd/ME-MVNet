@@ -11,9 +11,21 @@ train_joint:
   early_stop_patience: 12
   amp: false
   device: auto
+  save_train_state: false
 loss:
   w_sep: 1.0
   w_param: 0.5
   w_gate: 0.2
   w_ts: 1.0
+  w_active_nf: 0.3
+  w_phys: 0.0
+  w_anchor: 0.0
+  active_pos_weight: 1.5
+  w_bg: 0.01
+  w_sil: 0.25
+  w_orth: 0.05
+  w_div: 0.0
+  w_div_active: 0.08
+  w_bgtrue: 0.0
+  w_bgenv: 0.0
   tl_nf_weighted: false
