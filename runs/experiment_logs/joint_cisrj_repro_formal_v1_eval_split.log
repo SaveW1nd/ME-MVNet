@@ -1,0 +1,40 @@
+C:\Users\PC\AppData\Local\Programs\Python\Python312\Lib\site-packages\torch\nn\modules\transformer.py:379: UserWarning: enable_nested_tensor is True, but self.use_nested_tensor is False because encoder_layer.norm_first was True
+  warnings.warn(
+Composite evaluation done.
+{
+  "Tl_MAE_us": 1.6496809720993042,
+  "Tl_RMSE_us": 2.798933506011963,
+  "Ts_MAE_us": 3.4514667987823486,
+  "Ts_RMSE_us": 4.99760627746582,
+  "NF_Acc": 0.22466666666666665,
+  "NF_macroF1": 0.16586841228516755,
+  "A_Tl": 0.097,
+  "A_Ts": 0.06,
+  "A_NF": 0.337,
+  "A_total": 0.014
+}
+Scenario: dual
+Saved predictions: runs\exp_joint_cisrj_repro_formal_v1\predictions\scenario_dual\test_pred.npz
+Saved tables: runs\exp_joint_cisrj_repro_formal_v1\tables\scenario_dual
+C:\Users\PC\AppData\Local\Programs\Python\Python312\Lib\site-packages\torch\nn\modules\transformer.py:379: UserWarning: enable_nested_tensor is True, but self.use_nested_tensor is False because encoder_layer.norm_first was True
+  warnings.warn(
+Composite evaluation done.
+{
+  "Tl_MAE_us": 1.410723328590393,
+  "Tl_RMSE_us": 2.4370341300964355,
+  "Ts_MAE_us": 3.1046535968780518,
+  "Ts_RMSE_us": 4.473299026489258,
+  "NF_Acc": 0.32133333333333336,
+  "NF_macroF1": 0.19389851885072892,
+  "A_Tl": 0.124,
+  "A_Ts": 0.06,
+  "A_NF": 0.32133333333333336,
+  "A_total": 0.021333333333333333
+}
+Scenario: multi
+Saved predictions: runs\exp_joint_cisrj_repro_formal_v1\predictions\scenario_multi\test_pred.npz
+Saved tables: runs\exp_joint_cisrj_repro_formal_v1\tables\scenario_multi
+Scenario-split evaluation done.
+Run dir: runs\exp_joint_cisrj_repro_formal_v1
+Saved summary CSV: runs\exp_joint_cisrj_repro_formal_v1\tables\test_metrics_by_scenario.csv
+Saved summary JSON: runs\exp_joint_cisrj_repro_formal_v1\tables\test_metrics_by_scenario.json

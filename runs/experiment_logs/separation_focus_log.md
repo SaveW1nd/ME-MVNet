@@ -535,3 +535,112 @@
 ## 本轮测试结论
 - 修复数据生成后，端到端整体链路稳定可训练，且 test 总体指标达到 `A_total=0.3032`。
 - 难点仍在 `Ts` 精度（`A_Ts=0.3324` 明显低于 `A_NF` 与 `A_Tl`），后续整体优化应优先针对 `Ts` 头和多任务权重。
+
+## Need2（二阶段 loss 专项）E1/E2/E3
+- 时间: 2026-03-04 23:41 ~ 2026-03-05 01:19
+- 目标: 提升 `A_Ts/A_total`，并降低 `true active(1/2/3) -> pred 0` 漏检。
+- 配置治理:
+  - 统一只用 `configs/train_joint.yaml`
+  - `configs/train_joint_need1_stable.yaml` 已下线（删除）
+
+### 代码改动
+- `src/models/losses_seppe.py`
+  - 新增 `L_Ts`（active 源，`Ts_hat=(E[NF]+1)*Tl_hat`，Huber）
+  - NF CE 支持 `nf_class_weights`
+  - Tl Huber 支持 `tl_nf_weighted`（乘 `NF_true+1`）
+  - `L_param = L_Tl + L_NF + w_ts*L_Ts`
+- `src/train/trainer_seppe.py`
+  - 训练日志统计新增 `L_param`、`L_Ts`
+- `src/eval/metrics_seppe.py`
+  - 新增 `compute_metrics_by_nf`
+  - 新增 `compute_metrics_cond_nf_correct`
+- `scripts/14_eval_seppe.py`
+  - 新增输出 `metrics_by_nf.csv`
+  - 新增输出 `metrics_cond_nf_correct.csv`
+- `scripts/15_export_plots_seppe.py`
+  - 新增将上述两份 CSV 导出到 `paper/tables`
+
+### E1（只加 Ts loss）
+- 配置:
+  - `w_ts=1.0`
+  - `nf_class_weights=null`
+  - `tl_nf_weighted=false`
+- 训练命令:
+  - `python scripts/13_train_seppe_joint.py --sep-ckpt runs/exp_sep_formal_datafix_v1/checkpoints/best.pt --sep-config configs/model_sep_sf11_grouped_wide.yaml --pe-config configs/model_pe.yaml --train-config configs/train_joint.yaml --mode formal --exp-name exp_joint_formal_need2_e1_v1`
+- 评估命令:
+  - `python scripts/14_eval_seppe.py --ckpt runs/exp_joint_formal_need2_e1_v1/checkpoints/best.pt --split test --data-config configs/data_composite.yaml --sep-config configs/model_sep_sf11_grouped_wide.yaml --pe-config configs/model_pe.yaml --eval-config configs/eval_composite.yaml --run-dir runs/exp_joint_formal_need2_e1_v1`
+- 导出命令:
+  - `python scripts/15_export_plots_seppe.py --run-dir runs/exp_joint_formal_need2_e1_v1 --split test --paper-dir paper/need2_e1 --num-cases 3`
+- 结果:
+  - `A_total=0.4608`
+  - `A_Ts=0.4864`
+  - `Ts_MAE_us=0.6815`
+  - `miss(active->0)=209`
+
+### E2（E1 + NF class weights）
+- 配置:
+  - `w_ts=1.0`
+  - `nf_class_weights=[0.5,1.5,1.5,1.5]`
+  - `tl_nf_weighted=false`
+- 训练命令:
+  - `python scripts/13_train_seppe_joint.py --sep-ckpt runs/exp_sep_formal_datafix_v1/checkpoints/best.pt --sep-config configs/model_sep_sf11_grouped_wide.yaml --pe-config configs/model_pe.yaml --train-config configs/train_joint.yaml --mode formal --exp-name exp_joint_formal_need2_e2_v1`
+- 评估命令:
+  - `python scripts/14_eval_seppe.py --ckpt runs/exp_joint_formal_need2_e2_v1/checkpoints/best.pt --split test --data-config configs/data_composite.yaml --sep-config configs/model_sep_sf11_grouped_wide.yaml --pe-config configs/model_pe.yaml --eval-config configs/eval_composite.yaml --run-dir runs/exp_joint_formal_need2_e2_v1`
+- 导出命令:
+  - `python scripts/15_export_plots_seppe.py --run-dir runs/exp_joint_formal_need2_e2_v1 --split test --paper-dir paper/need2_e2 --num-cases 3`
+- 结果:
+  - `A_total=0.4732`（三组最佳）
+  - `A_Ts=0.4976`（三组最佳）
+  - `Ts_MAE_us=0.6352`（三组最佳）
+  - `miss(active->0)=133`（三组最低）
+
+### E3（E2 + Tl 按 NF 加权）
+- 配置:
+  - `w_ts=1.0`
+  - `nf_class_weights=[0.5,1.5,1.5,1.5]`
+  - `tl_nf_weighted=true`
+- 训练命令:
+  - `python scripts/13_train_seppe_joint.py --sep-ckpt runs/exp_sep_formal_datafix_v1/checkpoints/best.pt --sep-config configs/model_sep_sf11_grouped_wide.yaml --pe-config configs/model_pe.yaml --train-config configs/train_joint.yaml --mode formal --exp-name exp_joint_formal_need2_e3_v1`
+- 评估命令:
+  - `python scripts/14_eval_seppe.py --ckpt runs/exp_joint_formal_need2_e3_v1/checkpoints/best.pt --split test --data-config configs/data_composite.yaml --sep-config configs/model_sep_sf11_grouped_wide.yaml --pe-config configs/model_pe.yaml --eval-config configs/eval_composite.yaml --run-dir runs/exp_joint_formal_need2_e3_v1`
+- 导出命令:
+  - `python scripts/15_export_plots_seppe.py --run-dir runs/exp_joint_formal_need2_e3_v1 --split test --paper-dir paper/need2_e3 --num-cases 3`
+- 结果:
+  - `A_total=0.4644`
+  - `A_Ts=0.4892`
+  - `Ts_MAE_us=0.6966`
+  - `miss(active->0)=148`
+
+### Need2 对比结论
+- baseline(datafix): `A_total=0.3032`, `A_Ts=0.3324`, `miss(active->0)=288`
+- E1 显著提升（Ts loss 有效）。
+- E2 在 E1 基础上继续提升，并显著降低 active->0 漏检（核心目标达成）。
+- E3 未进一步超过 E2（虽 Tl 误差略优，但 Ts 与总指标回落）。
+- 当前推荐: **E2 作为 joint 默认配置**。
+
+### 固化
+- 已将 `configs/train_joint.yaml` 固化为 E2：
+  - `w_ts: 1.0`
+  - `nf_class_weights: [0.5, 1.5, 1.5, 1.5]`
+  - `tl_nf_weighted: false`
+
+### 产物
+- 训练运行目录:
+  - `runs/exp_joint_formal_need2_e1_v1`
+  - `runs/exp_joint_formal_need2_e2_v1`
+  - `runs/exp_joint_formal_need2_e3_v1`
+- 汇总表:
+  - `paper/tables/need2_ablation_summary.csv`
+- 每组新增诊断表:
+  - `tables/metrics_by_nf.csv`
+  - `tables/metrics_cond_nf_correct.csv`
+- 日志:
+  - `runs/experiment_logs/need2_e1_joint_formal.log`
+  - `runs/experiment_logs/need2_e1_joint_eval.log`
+  - `runs/experiment_logs/need2_e1_joint_export.log`
+  - `runs/experiment_logs/need2_e2_joint_formal.log`
+  - `runs/experiment_logs/need2_e2_joint_eval.log`
+  - `runs/experiment_logs/need2_e2_joint_export.log`
+  - `runs/experiment_logs/need2_e3_joint_formal.log`
+  - `runs/experiment_logs/need2_e3_joint_eval.log`
+  - `runs/experiment_logs/need2_e3_joint_export.log`

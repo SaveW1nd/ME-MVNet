@@ -1,0 +1,21 @@
+2026-03-05 05:22:47,057 | INFO | Epoch 001 | train L_sep=-3.01176 SIjam=1.004 skip=0 | val L_sep=-3.73627 SIjam=1.245 skip=0
+2026-03-05 05:23:46,755 | INFO | Epoch 002 | train L_sep=-3.59545 SIjam=1.198 skip=0 | val L_sep=-3.73627 SIjam=1.245 skip=0
+2026-03-05 05:24:46,020 | INFO | Epoch 003 | train L_sep=-3.59545 SIjam=1.198 skip=0 | val L_sep=-3.73627 SIjam=1.245 skip=0
+2026-03-05 05:25:45,221 | INFO | Epoch 004 | train L_sep=-3.59545 SIjam=1.198 skip=0 | val L_sep=-3.73627 SIjam=1.245 skip=0
+2026-03-05 05:26:44,433 | INFO | Epoch 005 | train L_sep=-3.59545 SIjam=1.198 skip=0 | val L_sep=-3.73627 SIjam=1.245 skip=0
+2026-03-05 05:27:43,629 | INFO | Epoch 006 | train L_sep=-3.59545 SIjam=1.198 skip=0 | val L_sep=-3.73627 SIjam=1.245 skip=0
+2026-03-05 05:28:42,767 | INFO | Epoch 007 | train L_sep=-3.59545 SIjam=1.198 skip=0 | val L_sep=-3.73627 SIjam=1.245 skip=0
+2026-03-05 05:29:41,920 | INFO | Epoch 008 | train L_sep=-3.59545 SIjam=1.198 skip=0 | val L_sep=-3.73627 SIjam=1.245 skip=0
+2026-03-05 05:30:41,147 | INFO | Epoch 009 | train L_sep=-3.59545 SIjam=1.198 skip=0 | val L_sep=-3.73627 SIjam=1.245 skip=0
+2026-03-05 05:31:40,426 | INFO | Epoch 010 | train L_sep=-3.59545 SIjam=1.198 skip=0 | val L_sep=-3.73627 SIjam=1.245 skip=0
+2026-03-05 05:32:39,686 | INFO | Epoch 011 | train L_sep=-3.59545 SIjam=1.198 skip=0 | val L_sep=-3.73627 SIjam=1.245 skip=0
+2026-03-05 05:33:38,928 | INFO | Epoch 012 | train L_sep=-3.59545 SIjam=1.198 skip=0 | val L_sep=-3.73627 SIjam=1.245 skip=0
+2026-03-05 05:34:38,167 | INFO | Epoch 013 | train L_sep=-3.59545 SIjam=1.198 skip=0 | val L_sep=-3.73627 SIjam=1.245 skip=0
+2026-03-05 05:34:38,650 | INFO | Early stopping at epoch 13
+2026-03-05 05:34:38,650 | INFO | Stage1 done. best_epoch=1 best_val=-3.736274
+Run dir: runs\exp_cisrj_repro_multi_formal_ds_v2
+best_epoch: 1
+best_val: -3.736273787498474
+elapsed_seconds: 770.7756066322327
+best_checkpoint: runs\exp_cisrj_repro_multi_formal_ds_v2\checkpoints\best.pt
+last_checkpoint: runs\exp_cisrj_repro_multi_formal_ds_v2\checkpoints\last.pt

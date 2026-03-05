@@ -1,4 +1,4 @@
-﻿train_joint:
+train_joint:
   seed: 20260304
   batch_size: 48
   num_workers: 0
@@ -11,8 +11,14 @@
   early_stop_patience: 12
   amp: false
   device: auto
-
 loss:
   w_sep: 1.0
   w_param: 0.5
   w_gate: 0.2
+  w_ts: 1.0
+  nf_class_weights:
+  - 0.5
+  - 1.5
+  - 1.5
+  - 1.5
+  tl_nf_weighted: false

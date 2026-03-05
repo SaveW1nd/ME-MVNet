@@ -116,7 +116,7 @@ def compute_joint_loss(
     """Compute full ME-MVSepPE loss.
 
     Total:
-        L = L_sep + 0.5*(L_Tl + L_NF) + 0.2*L_gate
+        L = w_sep*L_sep + w_param*(L_Tl + L_NF + w_ts*L_Ts) + w_gate*L_gate
     """
     sep_loss = compute_sep_loss(batch=batch, sep_out=out)
     perm = sep_loss["perm"]
@@ -134,16 +134,45 @@ def compute_joint_loss(
 
     active_mask = nf_true > 0
     if torch.any(active_mask):
-        l_tl = F.smooth_l1_loss(tl_hat[active_mask], tl_true[active_mask])
+        tl_err = F.smooth_l1_loss(tl_hat[active_mask], tl_true[active_mask], reduction="none")
+        if bool(loss_cfg.get("tl_nf_weighted", False)):
+            tl_w = nf_true[active_mask].to(dtype=tl_err.dtype) + 1.0
+            l_tl = torch.mean(tl_w * tl_err)
+        else:
+            l_tl = torch.mean(tl_err)
     else:
         l_tl = torch.zeros((), device=tl_hat.device, dtype=tl_hat.dtype)
 
-    l_nf = F.cross_entropy(nf_logits.reshape(-1, nf_logits.shape[-1]), nf_true.reshape(-1))
+    nf_class_weights = loss_cfg.get("nf_class_weights", None)
+    ce_weight = None
+    if nf_class_weights is not None:
+        ce_weight = torch.as_tensor(nf_class_weights, dtype=nf_logits.dtype, device=nf_logits.device)
+        if ce_weight.numel() != nf_logits.shape[-1]:
+            raise ValueError(
+                f"nf_class_weights length {int(ce_weight.numel())} "
+                f"!= num_classes {int(nf_logits.shape[-1])}"
+            )
+    l_nf = F.cross_entropy(
+        nf_logits.reshape(-1, nf_logits.shape[-1]),
+        nf_true.reshape(-1),
+        weight=ce_weight,
+    )
+
+    if torch.any(active_mask):
+        nf_probs = torch.softmax(nf_logits, dim=-1)
+        nf_values = torch.arange(nf_logits.shape[-1], device=nf_logits.device, dtype=nf_logits.dtype)
+        e_nf = torch.sum(nf_probs * nf_values.view(1, 1, -1), dim=-1)
+        ts_hat = (e_nf + 1.0) * tl_hat
+        l_ts = F.smooth_l1_loss(ts_hat[active_mask], ts_true[active_mask])
+    else:
+        l_ts = torch.zeros((), device=tl_hat.device, dtype=tl_hat.dtype)
 
     w_sep = float(loss_cfg["w_sep"])
     w_param = float(loss_cfg["w_param"])
     w_gate = float(loss_cfg["w_gate"])
-    total = w_sep * sep_loss["L_sep"] + w_param * (l_tl + l_nf) + w_gate * l_gate
+    w_ts = float(loss_cfg.get("w_ts", 0.0))
+    l_param = l_tl + l_nf + w_ts * l_ts
+    total = w_sep * sep_loss["L_sep"] + w_param * l_param + w_gate * l_gate
 
     return {
         "L_total": total,
@@ -151,8 +180,10 @@ def compute_joint_loss(
         "L_sep_jam": sep_loss["L_sep_jam"],
         "L_sep_bg": sep_loss["L_sep_bg"],
         "L_gate": l_gate,
+        "L_param": l_param,
         "L_Tl": l_tl,
         "L_NF": l_nf,
+        "L_Ts": l_ts,
         "perm": perm,
         "aligned_G": g_true,
         "aligned_Tl_us": tl_true,

@@ -1,0 +1,31 @@
+dataset:
+  name: cisrj_seppe_multi_v1
+  output_dir: data/raw/cisrj_seppe_multi_v1
+  seed: 20260304
+
+signal:
+  fs: 100000000.0
+  tp: 0.000015
+  pri: 0.000040
+  b: 10000000.0
+  n: 4000
+
+grid:
+  nf_values: [1, 2, 3]
+  tl_us_min: 1.0
+  tl_us_max: 3.0
+  jnr_db_min: -10.0
+  jnr_db_max: 20.0
+  k_active_fixed: 3
+
+background:
+  echo_snr_db: 0.0
+  noise_power: 1.0
+
+split:
+  train: 5000
+  val: 1000
+  test: 1000
+
+sanity:
+  ts_tl_eps: 1e-6

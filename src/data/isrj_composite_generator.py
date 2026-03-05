@@ -158,13 +158,40 @@ def _sample_k_active_list(count: int, dual_ratio: float, rng: np.random.Generato
     return arr
 
 
+def _build_k_active_list(
+    *,
+    count: int,
+    grid: dict[str, Any],
+    rng: np.random.Generator,
+) -> np.ndarray:
+    """Build K_active array.
+
+    - default: mixed dual/multi by `k_active_dual_ratio`
+    - fixed mode: all samples use `k_active_fixed` in {2, 3}
+    """
+    if "k_active_fixed" in grid:
+        k_fixed = int(grid["k_active_fixed"])
+        if k_fixed not in (2, 3):
+            raise ValueError(f"grid.k_active_fixed must be 2 or 3, got {k_fixed}")
+        return np.full((count,), k_fixed, dtype=np.int32)
+
+    dual_ratio = float(grid["k_active_dual_ratio"])
+    return _sample_k_active_list(count, dual_ratio=dual_ratio, rng=rng)
+
+
 def _meta_dict(cfg: dict[str, Any]) -> dict[str, Any]:
     signal = cfg["signal"]
+    grid = cfg["grid"]
+    if "k_active_fixed" in grid:
+        scenario_mode: str | int = int(grid["k_active_fixed"])
+    else:
+        scenario_mode = "mixed"
     return {
         "dataset_name": cfg["dataset"]["name"],
         "seed": int(cfg["dataset"]["seed"]),
         "signal": signal,
-        "grid": cfg["grid"],
+        "grid": grid,
+        "scenario_mode": scenario_mode,
         "background": cfg["background"],
         "split": cfg["split"],
         "definition": {
@@ -208,8 +235,7 @@ def generate_composite_split(
     nf_arr = np.zeros((num, 3), dtype=np.int32)
     jnr_arr = np.zeros((num, 3), dtype=np.float32)
 
-    dual_ratio = float(grid["k_active_dual_ratio"])
-    k_active_arr = _sample_k_active_list(num, dual_ratio=dual_ratio, rng=rng)
+    k_active_arr = _build_k_active_list(count=num, grid=grid, rng=rng)
 
     nf_values = np.array(grid["nf_values"], dtype=np.int32)
     tl_min_us = float(grid["tl_us_min"])

@@ -1,0 +1,25 @@
+2026-03-05 05:04:28,096 | INFO | Epoch 001 | train L_sep=2.11329 SIjam=-1.025 skip=0 | val L_sep=20.34263 SIjam=-10.163 skip=0
+2026-03-05 05:05:32,346 | INFO | Epoch 002 | train L_sep=5.51101 SIjam=-2.727 skip=0 | val L_sep=10.91361 SIjam=-5.432 skip=0
+2026-03-05 05:06:36,733 | INFO | Epoch 003 | train L_sep=5.25452 SIjam=-2.616 skip=0 | val L_sep=-4.36808 SIjam=2.197 skip=0
+2026-03-05 05:07:41,084 | INFO | Epoch 004 | train L_sep=-4.82624 SIjam=2.441 skip=0 | val L_sep=-4.61855 SIjam=2.340 skip=0
+2026-03-05 05:08:54,880 | INFO | Epoch 005 | train L_sep=-4.83912 SIjam=2.448 skip=0 | val L_sep=-4.67243 SIjam=2.367 skip=0
+2026-03-05 05:10:07,828 | INFO | Epoch 006 | train L_sep=-4.85735 SIjam=2.457 skip=0 | val L_sep=-4.67243 SIjam=2.367 skip=0
+2026-03-05 05:11:17,406 | INFO | Epoch 007 | train L_sep=-4.85735 SIjam=2.457 skip=0 | val L_sep=-4.67243 SIjam=2.367 skip=0
+2026-03-05 05:12:25,008 | INFO | Epoch 008 | train L_sep=-4.85735 SIjam=2.457 skip=0 | val L_sep=-4.67243 SIjam=2.367 skip=0
+2026-03-05 05:13:24,412 | INFO | Epoch 009 | train L_sep=-4.85735 SIjam=2.457 skip=0 | val L_sep=-4.67243 SIjam=2.367 skip=0
+2026-03-05 05:14:23,789 | INFO | Epoch 010 | train L_sep=-4.85734 SIjam=2.457 skip=0 | val L_sep=-4.67243 SIjam=2.367 skip=0
+2026-03-05 05:15:23,102 | INFO | Epoch 011 | train L_sep=-4.85735 SIjam=2.457 skip=0 | val L_sep=-4.67243 SIjam=2.367 skip=0
+2026-03-05 05:16:22,388 | INFO | Epoch 012 | train L_sep=-4.85734 SIjam=2.457 skip=0 | val L_sep=-4.67243 SIjam=2.367 skip=0
+2026-03-05 05:17:21,717 | INFO | Epoch 013 | train L_sep=-4.85734 SIjam=2.457 skip=0 | val L_sep=-4.67243 SIjam=2.367 skip=0
+2026-03-05 05:18:21,104 | INFO | Epoch 014 | train L_sep=-4.85734 SIjam=2.457 skip=0 | val L_sep=-4.67243 SIjam=2.367 skip=0
+2026-03-05 05:19:20,441 | INFO | Epoch 015 | train L_sep=-4.85734 SIjam=2.457 skip=0 | val L_sep=-4.67243 SIjam=2.367 skip=0
+2026-03-05 05:20:19,786 | INFO | Epoch 016 | train L_sep=-4.85734 SIjam=2.457 skip=0 | val L_sep=-4.67243 SIjam=2.367 skip=0
+2026-03-05 05:21:19,107 | INFO | Epoch 017 | train L_sep=-4.85734 SIjam=2.457 skip=0 | val L_sep=-4.67243 SIjam=2.367 skip=0
+2026-03-05 05:21:19,587 | INFO | Early stopping at epoch 17
+2026-03-05 05:21:19,587 | INFO | Stage1 done. best_epoch=5 best_val=-4.672428
+Run dir: runs\exp_cisrj_repro_dual_formal_ds_v2
+best_epoch: 5
+best_val: -4.672427573204041
+elapsed_seconds: 1072.345359802246
+best_checkpoint: runs\exp_cisrj_repro_dual_formal_ds_v2\checkpoints\best.pt
+last_checkpoint: runs\exp_cisrj_repro_dual_formal_ds_v2\checkpoints\last.pt

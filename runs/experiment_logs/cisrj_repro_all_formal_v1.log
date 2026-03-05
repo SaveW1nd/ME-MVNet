@@ -1,0 +1,21 @@
+2026-03-05 14:05:56,966 | INFO | Epoch 001 | train L_sep=-4.12840 SIjam=1.679 skip=0 | val L_sep=-4.35692 SIjam=1.772 skip=0
+2026-03-05 14:06:57,259 | INFO | Epoch 002 | train L_sep=-4.19317 SIjam=1.706 skip=0 | val L_sep=-4.35692 SIjam=1.772 skip=0
+2026-03-05 14:07:57,139 | INFO | Epoch 003 | train L_sep=-4.19317 SIjam=1.707 skip=0 | val L_sep=-4.35692 SIjam=1.772 skip=0
+2026-03-05 14:08:56,947 | INFO | Epoch 004 | train L_sep=-4.19317 SIjam=1.705 skip=0 | val L_sep=-4.35692 SIjam=1.772 skip=0
+2026-03-05 14:09:56,760 | INFO | Epoch 005 | train L_sep=-4.19317 SIjam=1.709 skip=0 | val L_sep=-4.35692 SIjam=1.772 skip=0
+2026-03-05 14:10:56,539 | INFO | Epoch 006 | train L_sep=-4.19317 SIjam=1.703 skip=0 | val L_sep=-4.35692 SIjam=1.772 skip=0
+2026-03-05 14:11:56,302 | INFO | Epoch 007 | train L_sep=-4.19317 SIjam=1.707 skip=0 | val L_sep=-4.35692 SIjam=1.772 skip=0
+2026-03-05 14:12:56,137 | INFO | Epoch 008 | train L_sep=-4.19317 SIjam=1.707 skip=0 | val L_sep=-4.35692 SIjam=1.772 skip=0
+2026-03-05 14:13:55,981 | INFO | Epoch 009 | train L_sep=-4.19317 SIjam=1.703 skip=0 | val L_sep=-4.35692 SIjam=1.772 skip=0
+2026-03-05 14:14:55,795 | INFO | Epoch 010 | train L_sep=-4.19317 SIjam=1.706 skip=0 | val L_sep=-4.35692 SIjam=1.772 skip=0
+2026-03-05 14:15:55,602 | INFO | Epoch 011 | train L_sep=-4.19317 SIjam=1.704 skip=0 | val L_sep=-4.35692 SIjam=1.772 skip=0
+2026-03-05 14:16:55,459 | INFO | Epoch 012 | train L_sep=-4.19317 SIjam=1.708 skip=0 | val L_sep=-4.35692 SIjam=1.772 skip=0
+2026-03-05 14:17:55,310 | INFO | Epoch 013 | train L_sep=-4.19317 SIjam=1.707 skip=0 | val L_sep=-4.35692 SIjam=1.772 skip=0
+2026-03-05 14:17:55,814 | INFO | Early stopping at epoch 13
+2026-03-05 14:17:55,814 | INFO | Stage1 done. best_epoch=1 best_val=-4.356924
+Run dir: runs\exp_cisrj_repro_all_formal_v1
+best_epoch: 1
+best_val: -4.3569244861602785
+elapsed_seconds: 778.1951758861542
+best_checkpoint: runs\exp_cisrj_repro_all_formal_v1\checkpoints\best.pt
+last_checkpoint: runs\exp_cisrj_repro_all_formal_v1\checkpoints\last.pt

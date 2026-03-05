@@ -11,7 +11,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 import torch
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Subset
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -19,14 +19,16 @@ if str(ROOT) not in sys.path:
 
 from src.data.dataset_npz_composite import CompositeISRJDataset
 from src.eval.metrics_seppe import (
+    compute_metrics_by_nf,
+    compute_metrics_cond_nf_correct,
     compute_metrics_by_jnr,
     compute_metrics_by_kactive,
     compute_metrics_overall,
     compute_nf_confusion_4,
 )
+from src.models.builders import build_separator
 from src.models.penet import MVSepPE, PENet
 from src.models.pit_perm import align_true_by_perm, best_perm_from_pairwise, pairwise_sep_cost
-from src.models.sepnet import SepNet
 from src.utils.io import ensure_dir, load_yaml, save_json
 
 
@@ -34,6 +36,7 @@ def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser()
     p.add_argument("--ckpt", type=str, required=True)
     p.add_argument("--split", type=str, choices=["train", "val", "test"], default="test")
+    p.add_argument("--scenario", type=str, choices=["all", "dual", "multi"], default="all")
     p.add_argument("--data-config", type=str, default="configs/data_composite.yaml")
     p.add_argument("--sep-config", type=str, default="configs/model_sep.yaml")
     p.add_argument("--pe-config", type=str, default="configs/model_pe.yaml")
@@ -54,6 +57,16 @@ def _to_device(batch: dict[str, Any], device: torch.device) -> dict[str, Any]:
     for k, v in batch.items():
         out[k] = v.to(device, non_blocking=True) if torch.is_tensor(v) else v
     return out
+
+
+def _subset_by_scenario(ds: CompositeISRJDataset, scenario: str) -> Subset | CompositeISRJDataset:
+    if scenario == "all":
+        return ds
+    target = 2 if scenario == "dual" else 3
+    idx = np.where(ds.k_active == target)[0]
+    if idx.size == 0:
+        raise RuntimeError(f"No samples for scenario={scenario}")
+    return Subset(ds, idx.tolist())
 
 
 def _infer(
@@ -125,15 +138,22 @@ def main() -> None:
     device = _select_device(eval_cfg)
     ckpt_path = Path(args.ckpt)
     run_dir = Path(args.run_dir) if args.run_dir else ckpt_path.parent.parent
-    pred_dir = ensure_dir(run_dir / "predictions")
-    table_dir = ensure_dir(run_dir / "tables")
+    pred_root = ensure_dir(run_dir / "predictions")
+    table_root = ensure_dir(run_dir / "tables")
+    if args.scenario == "all":
+        pred_dir = pred_root
+        table_dir = table_root
+    else:
+        pred_dir = ensure_dir(pred_root / f"scenario_{args.scenario}")
+        table_dir = ensure_dir(table_root / f"scenario_{args.scenario}")
 
     data_dir = Path(data_cfg["dataset"]["output_dir"])
     split_path = data_dir / f"{args.split}.npz"
     if not split_path.exists():
         raise FileNotFoundError(f"Missing split file: {split_path}")
 
-    ds = CompositeISRJDataset(split_path, normalize_x=True)
+    ds_full = CompositeISRJDataset(split_path, normalize_x=True)
+    ds = _subset_by_scenario(ds_full, args.scenario)
     loader = DataLoader(
         ds,
         batch_size=int(eval_cfg["batch_size"]),
@@ -142,7 +162,7 @@ def main() -> None:
         pin_memory=(device.type == "cuda"),
     )
 
-    model = MVSepPE(SepNet(sep_cfg), PENet(pe_cfg)).to(device)
+    model = MVSepPE(build_separator(sep_cfg), PENet(pe_cfg)).to(device)
     ckpt = torch.load(ckpt_path, map_location=device, weights_only=False)
     model.load_state_dict(ckpt["model_state"], strict=True)
 
@@ -180,12 +200,33 @@ def main() -> None:
         tl_tol_us=float(tol_cfg["tl_us"]),
         ts_tol_us=float(tol_cfg["ts_us"]),
     )
+    by_nf = compute_metrics_by_nf(
+        tl_true_us=pred["Tl_true_us"],
+        tl_pred_us=pred["Tl_pred_us"],
+        ts_true_us=pred["Ts_true_us"],
+        ts_pred_us=pred["Ts_pred_us"],
+        nf_true=pred["NF_true"],
+        nf_pred=pred["NF_pred"],
+        tl_tol_us=float(tol_cfg["tl_us"]),
+        ts_tol_us=float(tol_cfg["ts_us"]),
+    )
+    cond_nf = compute_metrics_cond_nf_correct(
+        tl_true_us=pred["Tl_true_us"],
+        tl_pred_us=pred["Tl_pred_us"],
+        ts_true_us=pred["Ts_true_us"],
+        ts_pred_us=pred["Ts_pred_us"],
+        nf_true=pred["NF_true"],
+        nf_pred=pred["NF_pred"],
+        tl_tol_us=float(tol_cfg["tl_us"]),
+        ts_tol_us=float(tol_cfg["ts_us"]),
+    )
     cm = compute_nf_confusion_4(pred["NF_true"], pred["NF_pred"])
 
     np.savez_compressed(pred_dir / f"{args.split}_pred.npz", **pred)
     save_json(
         {
             "split": args.split,
+            "scenario": args.scenario,
             "overall": overall,
             "nf_classes": [0, 1, 2, 3],
             "confusion_matrix": cm.tolist(),
@@ -194,9 +235,12 @@ def main() -> None:
     )
     pd.DataFrame(by_jnr).to_csv(table_dir / "test_metrics_by_jnr.csv", index=False)
     pd.DataFrame(by_kactive).to_csv(table_dir / "test_metrics_by_kactive.csv", index=False)
+    pd.DataFrame(by_nf).to_csv(table_dir / "metrics_by_nf.csv", index=False)
+    pd.DataFrame(cond_nf).to_csv(table_dir / "metrics_cond_nf_correct.csv", index=False)
 
     print("Composite evaluation done.")
     print(json.dumps(overall, indent=2))
+    print(f"Scenario: {args.scenario}")
     print(f"Saved predictions: {pred_dir / f'{args.split}_pred.npz'}")
     print(f"Saved tables: {table_dir}")
 

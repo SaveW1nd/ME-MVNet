@@ -196,6 +196,157 @@ def compute_metrics_by_kactive(
     return rows
 
 
+def compute_metrics_by_nf(
+    *,
+    tl_true_us: np.ndarray,
+    tl_pred_us: np.ndarray,
+    ts_true_us: np.ndarray,
+    ts_pred_us: np.ndarray,
+    nf_true: np.ndarray,
+    nf_pred: np.ndarray,
+    tl_tol_us: float = 0.15,
+    ts_tol_us: float = 0.25,
+) -> list[dict[str, Any]]:
+    """Compute active-source metrics grouped by true NF in {1,2,3}."""
+    rows: list[dict[str, Any]] = []
+    for nf_v in [1, 2, 3]:
+        idx = np.where(nf_true == nf_v)
+        count = int(idx[0].size)
+        if count == 0:
+            rows.append(
+                {
+                    "NF_true": int(nf_v),
+                    "Count": 0,
+                    "Tl_MAE_us": 0.0,
+                    "Tl_RMSE_us": 0.0,
+                    "Ts_MAE_us": 0.0,
+                    "Ts_RMSE_us": 0.0,
+                    "A_Tl": 0.0,
+                    "A_Ts": 0.0,
+                    "A_NF": 0.0,
+                    "A_total": 0.0,
+                }
+            )
+            continue
+
+        tl_t = tl_true_us[idx]
+        tl_p = tl_pred_us[idx]
+        ts_t = ts_true_us[idx]
+        ts_p = ts_pred_us[idx]
+        nf_t = nf_true[idx]
+        nf_p = nf_pred[idx]
+
+        ok_tl = np.abs(tl_p - tl_t) <= tl_tol_us
+        ok_ts = np.abs(ts_p - ts_t) <= ts_tol_us
+        ok_nf = nf_p == nf_t
+        ok_total = ok_tl & ok_ts & ok_nf
+
+        rows.append(
+            {
+                "NF_true": int(nf_v),
+                "Count": count,
+                "Tl_MAE_us": _mae(tl_t, tl_p),
+                "Tl_RMSE_us": _rmse(tl_t, tl_p),
+                "Ts_MAE_us": _mae(ts_t, ts_p),
+                "Ts_RMSE_us": _rmse(ts_t, ts_p),
+                "A_Tl": float(np.mean(ok_tl)),
+                "A_Ts": float(np.mean(ok_ts)),
+                "A_NF": float(np.mean(ok_nf)),
+                "A_total": float(np.mean(ok_total)),
+            }
+        )
+    return rows
+
+
+def compute_metrics_cond_nf_correct(
+    *,
+    tl_true_us: np.ndarray,
+    tl_pred_us: np.ndarray,
+    ts_true_us: np.ndarray,
+    ts_pred_us: np.ndarray,
+    nf_true: np.ndarray,
+    nf_pred: np.ndarray,
+    tl_tol_us: float = 0.15,
+    ts_tol_us: float = 0.25,
+) -> list[dict[str, Any]]:
+    """Compute active-source metrics conditioned on NF correctness."""
+    active = nf_true > 0
+    if not np.any(active):
+        return [
+            {
+                "Group": "nf_correct",
+                "Count": 0,
+                "Tl_MAE_us": 0.0,
+                "Ts_MAE_us": 0.0,
+                "A_Tl": 0.0,
+                "A_Ts": 0.0,
+                "A_NF": 0.0,
+                "A_total": 0.0,
+            },
+            {
+                "Group": "nf_wrong",
+                "Count": 0,
+                "Tl_MAE_us": 0.0,
+                "Ts_MAE_us": 0.0,
+                "A_Tl": 0.0,
+                "A_Ts": 0.0,
+                "A_NF": 0.0,
+                "A_total": 0.0,
+            },
+        ]
+
+    tl_t = tl_true_us[active]
+    tl_p = tl_pred_us[active]
+    ts_t = ts_true_us[active]
+    ts_p = ts_pred_us[active]
+    nf_t = nf_true[active]
+    nf_p = nf_pred[active]
+
+    ok_nf = nf_p == nf_t
+    rows: list[dict[str, Any]] = []
+    for name, sel in [("nf_correct", ok_nf), ("nf_wrong", ~ok_nf)]:
+        count = int(np.sum(sel))
+        if count == 0:
+            rows.append(
+                {
+                    "Group": name,
+                    "Count": 0,
+                    "Tl_MAE_us": 0.0,
+                    "Ts_MAE_us": 0.0,
+                    "A_Tl": 0.0,
+                    "A_Ts": 0.0,
+                    "A_NF": 0.0,
+                    "A_total": 0.0,
+                }
+            )
+            continue
+
+        tl_t_g = tl_t[sel]
+        tl_p_g = tl_p[sel]
+        ts_t_g = ts_t[sel]
+        ts_p_g = ts_p[sel]
+        nf_t_g = nf_t[sel]
+        nf_p_g = nf_p[sel]
+
+        ok_tl = np.abs(tl_p_g - tl_t_g) <= tl_tol_us
+        ok_ts = np.abs(ts_p_g - ts_t_g) <= ts_tol_us
+        ok_nf_g = nf_p_g == nf_t_g
+        ok_total = ok_tl & ok_ts & ok_nf_g
+        rows.append(
+            {
+                "Group": name,
+                "Count": count,
+                "Tl_MAE_us": _mae(tl_t_g, tl_p_g),
+                "Ts_MAE_us": _mae(ts_t_g, ts_p_g),
+                "A_Tl": float(np.mean(ok_tl)),
+                "A_Ts": float(np.mean(ok_ts)),
+                "A_NF": float(np.mean(ok_nf_g)),
+                "A_total": float(np.mean(ok_total)),
+            }
+        )
+    return rows
+
+
 def compute_nf_confusion_4(nf_true: np.ndarray, nf_pred: np.ndarray) -> np.ndarray:
     """Confusion matrix in fixed class order [0,1,2,3]."""
     return confusion_matrix(nf_true.reshape(-1), nf_pred.reshape(-1), labels=[0, 1, 2, 3])

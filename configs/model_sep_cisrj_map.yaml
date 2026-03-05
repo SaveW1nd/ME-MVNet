@@ -1,0 +1,11 @@
+model_sep:
+  model_type: cisrj_sn
+  n_samples: 4000
+  num_sources: 4
+  encoder_channels: 256
+  encoder_kernel: 16
+  encoder_stride: 8
+  tcn_blocks: 16
+  tcn_dropout: 0.05
+  use_global_pos_enc: true
+  max_length: 4096

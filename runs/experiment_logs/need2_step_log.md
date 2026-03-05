@@ -65,3 +65,55 @@
   - `runs/experiment_logs/need2_joint_formal_activejam_v1.log`
   - `runs/experiment_logs/need2_joint_eval_activejam_v1.log`
   - `runs/experiment_logs/need2_joint_export_activejam_v1.log`
+
+---
+
+## Need2 第二轮（Ts 专项 E1/E2/E3，单配置）
+
+- 日期: 2026-03-04 ~ 2026-03-05
+- 配置治理:
+  - `configs/train_joint_need1_stable.yaml` 下线
+  - 统一只保留 `configs/train_joint.yaml`
+- 代码改动:
+  - `src/models/losses_seppe.py`：新增 `L_Ts`、NF class weights、Tl NF 加权
+  - `src/eval/metrics_seppe.py`：新增 `metrics_by_nf` 与 `metrics_cond_nf_correct`
+  - `scripts/14_eval_seppe.py`：新增两份诊断 CSV 导出
+  - `scripts/15_export_plots_seppe.py`：新 CSV 同步到 `paper/tables`
+
+### E1（Ts loss）
+- 命令:
+  - `python scripts/13_train_seppe_joint.py --sep-ckpt runs/exp_sep_formal_datafix_v1/checkpoints/best.pt --sep-config configs/model_sep_sf11_grouped_wide.yaml --pe-config configs/model_pe.yaml --train-config configs/train_joint.yaml --mode formal --exp-name exp_joint_formal_need2_e1_v1`
+  - `python scripts/14_eval_seppe.py --ckpt runs/exp_joint_formal_need2_e1_v1/checkpoints/best.pt --split test --run-dir runs/exp_joint_formal_need2_e1_v1 --sep-config configs/model_sep_sf11_grouped_wide.yaml --pe-config configs/model_pe.yaml`
+  - `python scripts/15_export_plots_seppe.py --run-dir runs/exp_joint_formal_need2_e1_v1 --paper-dir paper/need2_e1`
+- test: `A_total=0.4608`, `A_Ts=0.4864`, `Ts_MAE_us=0.6815`
+
+### E2（E1 + NF class weights）
+- 命令:
+  - `python scripts/13_train_seppe_joint.py --sep-ckpt runs/exp_sep_formal_datafix_v1/checkpoints/best.pt --sep-config configs/model_sep_sf11_grouped_wide.yaml --pe-config configs/model_pe.yaml --train-config configs/train_joint.yaml --mode formal --exp-name exp_joint_formal_need2_e2_v1`
+  - `python scripts/14_eval_seppe.py --ckpt runs/exp_joint_formal_need2_e2_v1/checkpoints/best.pt --split test --run-dir runs/exp_joint_formal_need2_e2_v1 --sep-config configs/model_sep_sf11_grouped_wide.yaml --pe-config configs/model_pe.yaml`
+  - `python scripts/15_export_plots_seppe.py --run-dir runs/exp_joint_formal_need2_e2_v1 --paper-dir paper/need2_e2`
+- test: `A_total=0.4732`, `A_Ts=0.4976`, `Ts_MAE_us=0.6352`（当前最佳）
+
+### E3（E2 + Tl NF 加权）
+- 命令:
+  - `python scripts/13_train_seppe_joint.py --sep-ckpt runs/exp_sep_formal_datafix_v1/checkpoints/best.pt --sep-config configs/model_sep_sf11_grouped_wide.yaml --pe-config configs/model_pe.yaml --train-config configs/train_joint.yaml --mode formal --exp-name exp_joint_formal_need2_e3_v1`
+  - `python scripts/14_eval_seppe.py --ckpt runs/exp_joint_formal_need2_e3_v1/checkpoints/best.pt --split test --run-dir runs/exp_joint_formal_need2_e3_v1 --sep-config configs/model_sep_sf11_grouped_wide.yaml --pe-config configs/model_pe.yaml`
+  - `python scripts/15_export_plots_seppe.py --run-dir runs/exp_joint_formal_need2_e3_v1 --paper-dir paper/need2_e3`
+- test: `A_total=0.4644`, `A_Ts=0.4892`, `Ts_MAE_us=0.6966`
+
+### 第二轮结论
+- 三组都显著优于 baseline（`A_total=0.3032`, `A_Ts=0.3324`）。
+- 最优为 E2（Ts loss + NF class weights），E3 未超过 E2。
+- `paper/tables/need2_ablation_summary.csv` 已输出完整对比。
+
+### 新诊断输出解读（E2）
+- `metrics_by_nf.csv`（E2）:
+  - NF=1: `Ts_MAE_us=0.5326`, `A_Ts=0.5468`
+  - NF=2: `Ts_MAE_us=0.5691`, `A_Ts=0.5117`
+  - NF=3: `Ts_MAE_us=0.7996`, `A_Ts=0.4346`（仍是最难）
+- `metrics_cond_nf_correct.csv`（E2）:
+  - `nf_correct`: `Ts_MAE_us=0.3927`, `A_Ts=0.5781`
+  - `nf_wrong`: `Ts_MAE_us=1.9085`, `A_Ts=0.0750`
+- 说明:
+  - Ts 误差仍高度受 NF 错误驱动（NF 错时 Ts 明显恶化）
+  - E2 通过 class weight 已明显压低 `active->0` 漏检，是本轮最关键收益

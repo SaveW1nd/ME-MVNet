@@ -1,0 +1,27 @@
+train_sep:
+  seed: 20260304
+  batch_size: 8
+  num_workers: 0
+  epochs_smoke: 3
+  epochs_formal: 60
+  lr: 0.001
+  weight_decay: 0.0001
+  grad_clip: 5.0
+  early_stop_patience: 20
+  amp: false
+  device: auto
+  normalize_targets: true
+  scheduler:
+    type: plateau
+    factor: 0.5
+    patience: 3
+    threshold: 0.0001
+    cooldown: 0
+    min_lr: 0.000001
+  loss_sep:
+    w_bg: 0.0
+    w_sil: 0.0
+    w_orth: 0.0
+    w_bgtrue: 0.0
+    w_bgenv: 0.0
+    w_div: 0.0

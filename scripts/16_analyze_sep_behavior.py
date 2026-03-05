@@ -27,8 +27,8 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from src.data.dataset_npz_composite import CompositeISRJDataset
+from src.models.builders import build_separator
 from src.models.pit_perm import align_true_by_perm, best_perm_from_pairwise, pairwise_sep_cost
-from src.models.sepnet import SepNet
 from src.models.sisdr import si_sdr
 from src.utils.io import ensure_dir, load_yaml, save_json
 
@@ -339,7 +339,7 @@ def main() -> None:
         pin_memory=(device.type == "cuda"),
     )
 
-    model = SepNet(model_cfg).to(device)
+    model = build_separator(model_cfg).to(device)
     ckpt = torch.load(ckpt_path, map_location=device, weights_only=False)
     model.load_state_dict(ckpt["model_state"], strict=True)
 
@@ -384,10 +384,10 @@ def main() -> None:
             "best_indices": sorted(list(best_idx)),
             "num_cases": num_cases,
             "notes": [
-                "collapse_cos 越高表示不同预测槽更相似（源塌缩风险更高）",
-                "silence_ratio 越高表示 inactive 槽能量泄漏更严重",
-                "bg_leak_corr 越高表示背景分量与 jammer 总包络相关性更强（背景污染风险）",
-                "mask_entropy 越高表示掩码分配更不确定，越低表示分配更尖锐",
+                "collapse_cos: higher means slot outputs are more similar (higher collapse risk)",
+                "silence_ratio: higher means more energy leakage into inactive slots",
+                "bg_leak_corr: higher means stronger background contamination by jammer envelope",
+                "mask_entropy: higher means less confident mask assignment",
             ],
         },
         tab_dir / "sep_diagnostics.json",
@@ -402,3 +402,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

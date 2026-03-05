@@ -1,0 +1,1474 @@
+Contents lists available at ScienceDirect
+Aerospace Science and Technology
+journal homepage: www.elsevier.com/locate/aescte
+An end-to-end deep learning framework for separation and parameter 
+measurement of composite intermittent sampling repeater jamming 
+Guozheng Wang
+ a, Qinzhe Lv
+ a,b, Liyi Liu
+ a, Rong Yang
+ c, Bowen Bie
+ a, 
+Yaojun Wu
+ a,∗, Yinghui Quan
+ a,∗
+a School of Information Mechanics and Sensing Engineering, Xidian University, Xi’an, 710071, China
+b School of Remote Sensing Information Engineering, Wuhan University, 430072, Wuhan, China
+c Beijing Institute of Electronic System Engineering, 100854, Beijing, China
+a r t i c l e  i n f o
+Dr. Xingqun Zhan
+Keywords:
+Composite intermittent sampling repeater 
+jamming
+Parameter estimation
+Deep learning
+Radar anti-jamming
+Attention mechanism
+ a b s t r a c t
+To address the severe challenge posed by composite intermittent sampling repeater jamming (ISRJ) to aerospace 
+radar, we propose a novel end-to-end deep learning framework for simultaneous signal separation and parameter 
+estimation. At the core of this framework is a custom deep separation network (CISRJ-SN), which features a 
+unique hybrid attention architecture. This architecture synergistically fuses one-dimensional convolution for 
+local feature extraction with a gated attention unit for global dependency modeling, thereby achieving high-
+ﬁdelity jammer signal separation even at a low Jammer-to-Noise Ratio (JNR). Results from both simulations and 
+real-world hardware-in-the-loop experiments collectively validate the superior performance of our framework. 
+In two-component and multi-component scenarios, it achieves accuracy rates of 99.5 % and 94.4 % respectively, 
+marking a signiﬁcant improvement over the next-best methods. In addition to high accuracy, the framework 
+demonstrates exceptional estimation precision, reducing the Mean Absolute Error (MAE) of key parameters by 
+over 60 %. This proves the high stability and reliability of its estimation results, oﬀering a promising solution for 
+future intelligent sense-and-countermeasure closed-loop systems.
+1.  Introduction
+State-of-the-art radar systems constitute the core sensory compo-
+nent of modern aerospace platforms-including airborne, spaceborne, 
+and missile-borne systems-playing a pivotal role in navigation, guid-
+ance, and battleﬁeld surveillance [1–4]. Integral to these systems, ad-
+vanced antenna technology serves as the critical interface to the elec-
+tromagnetic environment, directly inﬂuencing the system’s operational 
+range, resolution, and its susceptibility to interference [5,6]. In fact, 
+a class of anti-jamming techniques known as spatial ﬁltering is im-
+plemented at the antenna level, employing methods such as adaptive 
+null-steering and sidelobe cancellation to suppress interfering signals 
+from speciﬁc directions [7,8]. However, such spatial-domain methods 
+have inherent limitations when countering sophisticated interference 
+that can mimic authentic target echoes and may enter through the 
+main antenna lobe. Notably, a particularly potent form of this threat is 
+the composite Intermittent Sampling Repeater Jamming (ISRJ), which 
+leverages Digital Radio Frequency Memory (DRFM) technology [9]. 
+Capable of producing a hybrid of suppressive and deceptive eﬀects 
+∗ Corresponding authors.
+ E-mail addresses: wgz@stu.xidian.edu.cn (G. Wang), 75912527@qq.com (R. Yang), yjwu@xidian.edu.cn (Y. Wu), yhquan@mail.xidian.edu.cn (Y. Quan).
+while possessing the ability for dynamic parameter reconﬁguration, 
+ISRJ has emerged as a predominant and formidable jamming modality
+[10].
+Existing strategies to counter the threat of ISRJ generally fall into 
+two primary categories [11,12]. The ﬁrst category involves proactive 
+avoidance strategies, the central tenet of which is to ‘evade’ or ‘sub-
+vert’ the jamming generation process through the design of novel radar 
+waveforms. For example, the intra-pulse frequency-agile waveform in-
+troduced in [13] is designed to vary the signal’s frequency character-
+istics, thereby impeding the jammer’s ability to eﬀectively follow and 
+counter. Along similar lines, references [14,15] achieve interference 
+suppression via the joint optimization of the transmit waveform and the 
+receive ﬁlter. The primary merit of such approaches lies in their ability 
+to mitigate jamming at its source. Their fundamental limitation, how-
+ever, is that their eﬃcacy  is critically dependent on a priori knowledge 
+of the jamming intent and modality. Consequently, in complex and dy-
+namic electromagnetic environments characterized by unknown or un-
+predictable jamming patterns, the robustness and adaptability of these 
+strategies are severely constrained.
+https://doi.org/10.1016/j.ast.2025.111218
+Received 15 July 2025; Received in revised form 16 September 2025; Accepted 2 November 2025
+Aerospace Science and Technology 168 (2026) 111218 
+Available online 18 November 2025 
+1270-9638/© 2025 Elsevier Masson SAS. All rights are reserved, including those for text and data mining, AI training, and similar technologies. 
+G. Wang, Q. Lv, L. Liu et al.
+This has led to a second class of strategies garnering signiﬁcant re-
+search attention: passive suppression techniques predicated on the pre-
+cise estimation of jamming parameters. The precise estimation of the 
+type, quantity, and critical parameters of composite jamming signals 
+constitutes the essential a priori information required for subsequent 
+interference cancellation, ﬁlter optimization, or the design of targeted 
+countermeasures [16–19]. The research in this domain can be broadly 
+demarcated into two principal phases of development:
+1) The initial phase is characterized by approaches rooted in con-
+ventional signal processing. In this stage, researchers sought to leverage 
+artifact signatures in the pulse compression domain or employ time-
+frequency analysis (TFA) tools to deinterleave and estimate the param-
+eters of ISRJ signals [20,21]. The primary strengths of these approaches 
+are their high degree of physical interpretability and comparatively low 
+computational complexity. Their critical drawback, however, is an acute 
+sensitivity to the jamming-to-noise ratio (JNR); in low-JNR scenarios, 
+signiﬁcant signal features become inundated by noise, resulting in a 
+precipitous decline in performance. Crucially, in scenarios involving 
+composite jamming from multiple sources, the constituent signals of-
+ten overlap in both the time and frequency domains, exhibiting severe 
+parameter coupling. This renders eﬀective decoupling and precise esti-
+mation intractable for conventional methods.
+2) Subsequently, to surmount the limitations inherent in conven-
+tional approaches under low-JNR and feature-coupling conditions, the 
+research community shifted its focus toward solutions predicated on 
+deep learning (DL) [22]. Early DL-based methods sought to enhance 
+performance by integrating handcrafted, domain-speciﬁc features. For 
+instance, reference [23] exploited the temporal periodicity inherent in 
+dual-component ISRJ signals to conduct parameter estimation. Refer-
+ence [24], in turn, introduced the concept of object detection to this do-
+main, employing an AE-YOLOv8 model to draw bounding boxes around 
+individual jamming components. The primary contribution of this line 
+of inquiry was its validation of DL’s potential for automated feature ex-
+traction. However, their limitations stemmed from this very reliance 
+on speciﬁc, pre-deﬁned features: the periodicity exploited in [23] be-
+comes obscured as the number of jamming components increases, while 
+the bounding-box mechanism in [24] suﬀers from a signiﬁcant lack 
+of robustness in low-JNR environments. Fundamentally, these methods 
+failed to escape the conﬁnes of manual feature engineering, resulting in 
+limited generalization capabilities.
+In summary, to achieve genuinely intelligent processing, we propose 
+a parameter estimation methodology predicated on signal separation 
+networks. This approach learns the intrinsic representations of signals 
+in a data-driven manner, thereby obviating the need for speciﬁc, hand-
+crafted features. Tailored to the characteristics of composite ISRJ sig-
+nals, we have constructed an end-to-end framework for simultaneous 
+jamming separation and parameter estimation, introducing a novel sep-
+aration network designated CISRJ-SN. This network leverages a state-
+of-the-art encoder-decoder architecture. The core of this network is a 
+novel hybrid Attention Block that deeply integrates a Gated Attention 
+Unit (GAU) [25]-engineered for eﬃcient  long-sequence modeling-with 
+one-dimensional convolutional networks. This fusion synergistically en-
+hances the model’s capacity for both local feature characterization and 
+global dependency modeling. Our holistic framework integrates jam-
+ming separation, pulse detection, and clustering optimization to actu-
+alize a direct mapping from raw mixed-signal input to ﬁnal parameter 
+output, all within a monolithic model. It thereby provides a key techno-
+logical underpinning for enhancing the situational awareness and self-
+protection capabilities of aerospace platforms in future high-density, in-
+tensely adversarial electromagnetic environments.
+The innovations and contributions of this paper are summarized as 
+follows:
+1) We propose the Composite ISRJ Separation Network (CISRJ-SN), 
+a novel interference separation model founded on a Gated Single-
+Head Transformer (GSHT) architecture. By employing a convolution-
+augmented self-attention mechanism, this model is the ﬁrst to learn 
+both local feature patterns and global long-range dependencies 
+within a uniﬁed, attention-gated framework. This breakthrough not 
+only yields a substantial improvement in interference separation per-
+formance but also provides novel perspectives and methodologies for 
+addressing analogous problems.
+2) To overcome the parameter estimation challenges posed by the tem-
+poral fragmentation of separated signals, we introduce a robust al-
+gorithm predicated on pulse detection and clustering optimization. 
+This methodology integrates adaptive dynamic thresholding, multi-
+stage pulse segmentation, and advanced clustering algorithms, en-
+abling precise parameter estimation that is speciﬁcally tailored to 
+the characteristics of the deinterleaved ISRJ signals.
+3) The proposed methodology ﬁrstly demonstrates high eﬃcacy  not 
+only in scenarios involving Linear Frequency Modulated (LFM) radar 
+signals but also exhibits exceptional performance when processing 
+Frequency-Hopping (FH) signals. This inherent adaptability and ﬂex-
+ibility render it particularly well-suited for systems that employ di-
+verse radar waveforms.
+4) Our method demonstrates superior accuracy compared to state-of-
+the-art techniques, particularly under low-JNR conditions. More-
+over, even when trained on limited datasets, it markedly enhances 
+estimation accuracy in resource-constrained scenarios, thereby of-
+fering robust support for applications where data is scarce.
+2.  Principles and signal models of ISRJ
+This section outlines the fundamental operating principles of ISRJ 
+and presents the signal model for its composite form.
+2.1.  Mechanism and characteristics of ISRJ
+ISRJ was initially proposed by Wang et al. in 2007 [26] and is im-
+plemented via a transceiver architecture employing time-division mul-
+tiplexing. The jammer operates by periodically sampling segments of 
+the radar signal to generate a series of deceptive pulses that are highly 
+phase-coherent with the authentic signal. Upon processing by the radar’s 
+matched ﬁlter, each of these deceptive pulses can capture approximately 
+50 % of the pulse compression energy, thereby producing a cluster of 
+false targets in the range domain that exhibits a distinct amplitude gra-
+dient. This composite jamming mechanism integrates the dual tactical 
+eﬀects of deceptive target generation and suppressive noise-like blanket-
+ing [27], signiﬁcantly enhancing the operational eﬀectiveness of elec-
+tronic warfare (EW) systems.
+Based on its intercept-and-forward strategy, ISRJ is primarily cat-
+egorized into two main types: Direct Forwarding Jamming (DFJ) and 
+Repetitive Forwarding Jamming (RFJ). The mechanisms of these two 
+jamming types are analyzed in detail in the following subsections.
+The operating principle of DFJ is illustrated in Fig. 1a. In this mode, 
+the jammer’s receiver and transmitter operate in a time-division multi-
+plexing manner. First, the jammer intercepts a segment of the incom-
+ing radar signal during its ‘sampling’ phase (e.g., pulse segment ‘1’). It 
+then immediately switches to the ‘forwarding’ phase to transmit the just-
+recorded segment ‘1’. This ‘sample-and-forward’ process is then repeated 
+in an alternating fashion-sampling ‘3’ and forwarding ‘3’, sampling ‘5’ 
+and forwarding ‘5’. The resultant jamming signal can be mathematically 
+expressed as:
+𝐷𝐹 𝐽 =
+𝑁−1∑
+𝑛=0
+𝑟𝑒𝑐𝑡
+(𝑡 − (2𝑛 + 1)𝑇𝑙
+𝑇𝑙
+)
+𝑆𝑡
+(𝑡 − 𝑇𝑙
+) (1)
+where 𝑟𝑒𝑐𝑡(·) represents the window function, 𝑁 denotes the number 
+of slices, 𝑇𝑙 denotes the slice width and 𝑆𝑡(𝑡) represents the transmitted 
+signal.
+The operating principle of RFJ is illustrated in Fig. 1b. Under this 
+scheme, the jammer intercepts an initial segment of the radar signal 
+Aerospace Science and Technology 168 (2026) 111218 
+2 
+G. Wang, Q. Lv, L. Liu et al.
+Fig. 1. Jamming schematic diagram. (a) The schematic diagram of DFJ. (b) The schematic diagram of RFJ.
+(e.g., segment ‘1’). However, instead of forwarding alternately, it repet-
+itively retransmits this same captured segment multiple times with a 
+predeﬁned delay for the duration of the radar pulse. As shown, segment 
+‘1’ is forwarded three consecutive times. After a sampling interval (𝑇𝑠), 
+the process may repeat by sampling a new segment (e.g., ‘5’) and retrans-
+mitting it multiple times. This method is designed to generate multiple, 
+closely-spaced false targets from a single radar pulse segment. Thus, the 
+resultant jamming signal can be formulated as:
+𝑅𝐹 𝐽 =
+𝑀 ′
+∑
+𝑚=1
+𝑁−1∑
+𝑛=0
+𝑟𝑒𝑐𝑡
+(𝑡 − 𝑛𝑇𝑠 − 𝑚𝑇𝑙
+𝑇𝑙
+)
+𝑆𝑡(𝑡 − 𝑚𝑇𝑙) (2)
+where 𝑀 ′ is the number of times a jamming slice is forwarded, and 
+𝑇𝑠 is the sampling interval. 𝑇𝑓 represents the ’forwarding width’, and 
+𝑇𝑓 = 𝑇𝑠 − 𝑇𝑙.
+As is evident from (1) and (2), the ISRJ signal is highly coherent 
+with the transmitted radar signal. Consequently, for a pulse compres-
+sion radar system, this jamming exhibits characteristics in the time, fre-
+quency, and pulse compression domains that are analogous to those of 
+an echo from a point scatterer.
+2.2.  Composite ISRJ signal model
+When multiple jammers are deployed by a hostile system, the re-
+ceived radar signal comprises a composite of multiple ISRJ components. 
+These components, each characterized by distinct parameters, randomly 
+overlap in the time and frequency domains. The total received signal can 
+then be modeled as:
+𝑆𝑟(𝑡) = 𝐴0𝑆𝑡(𝑡 − 𝑡0) +
+𝑀∑
+𝑚=1
+𝐽𝑚(𝑡 − 𝑡𝑚) + 𝑛(𝑡) (3)
+where 𝐴0 is the amplitude of the authentic radar echo, 𝑆𝑟(𝑡) is the radar 
+echo signal corrupted by jamming interference, and 𝐽𝑚 denotes the 𝑚 −
+𝑡ℎ ISRJ component. The variable 𝑡 represents time, while 𝑡0 and 𝑡𝑚 are 
+the respective time delays of the authentic target echo and the 𝑚 − 𝑡ℎ
+ISRJ component. 𝑀 signiﬁes the total number of ISRJ components in 
+the composite signal, and 𝑛(𝑡) represents additive white Gaussian noise 
+with 0 mean and a variance of 𝜎2.
+Fig. 2a illustrates the time-domain model of a composite ISRJ sig-
+nal, showcasing the superposition of an authentic radar signal with 
+three ISRJ components, each deﬁned by distinct parameters such as slice 
+width, sampling interval, and the number of repetitions. Fig. 2b corre-
+spondingly presents the signal in the time-frequency domain, where it is 
+evident that the constituent components exhibit signiﬁcant overlap not 
+only in time but also in frequency. This demonstrates that in practical 
+scenarios, multiple ISRJ components can coexist and interact to form 
+highly complex jamming patterns. Furthermore, the presence of noise 
+renders parameter estimation via conventional methods, such as enve-
+lope detection or time-frequency ﬁltering, exceedingly diﬃcult.  These 
+factors collectively establish the eﬀective identiﬁcation and separation 
+of individual ISRJ components as a formidable challenge.
+3.  Composite ISRJ separation and parameter estimation
+The composite ISRJ parameter estimation framework proposed in 
+this paper adheres to a cascaded ‘separate-then-estimate’ design method-
+ology, the overall workﬂow of which is depicted in Fig. 3. This frame-
+work comprises two principal modules. The entire process begins at the 
+input stage, where a composite ISRJ signal-a complex mixture of multi-
+ple jamming components and noise-is fed into the system.
+1) Stage One: Interference Separation (CISRJ-SN):
+The raw signal ﬁrst enters the CISRJ-SN. This core module lever-
+ages a unique hybrid attention mechanism, engineered to precisely 
+separate the individual ISRJ components from a highly complex and 
+interwoven input signal. The output of this stage is a set of sepa-
+rated ISRJ component signals, where each ideally corresponds to an 
+individual jammer, though it may still be fragmented and contain 
+residual noise.
+2) Stage Two: Parameter Estimation:
+Subsequently, each separated ISRJ signal is independently pro-
+cessed by a dedicated parameter estimation module. This module 
+executes a suite of algorithms to accurately quantify the critical pa-
+rameters for each jamming component. This process includes:
+Adaptive Thresholding and Binarization: First, the fragmented sig-
+nal is transformed into a stable binary sequence representing its 
+‘on/oﬀ’ states.
+Parameter Decoupling and Clustering Optimization: Raw measure-
+ments for slice width and forwarding width are extracted from the 
+binary sequence. A density-based clustering algorithm is then em-
+ployed to reﬁne these measurements, removing outliers and identi-
+fying the dominant values.
+Final Parameter Output: Finally, the module computes and outputs 
+the precise estimated values for each component: slice width ( ̂𝑇𝑙), 
+forwarding width ( ̂𝑇𝑓 ), and the number of forwardings ( ̂𝑁𝐹 ).
+3.1.  The CISRJ-SN interference separation network
+Given a received radar signal 𝑥, which constitutes a composite 
+mixture of 𝐶 jamming signals expressed as: 𝑥 = ∑𝐶
+𝑗=1 𝑥𝑗 , the objec-
+tive is to estimate the 𝐶 individual ISRJ components 𝑥𝑖 ∈ 𝑅1×𝑇 (for 
+𝑖 = 1, 2, … , 𝐶), using a deep learning-based model. In this formulation, 
+𝑇 represents the length of the time sequence.
+When designing a network for composite ISRJ separation, the fore-
+most task is to conduct an in-depth analysis of the signal’s intrinsic 
+physical characteristics, as this directly dictates the architectural de-
+sign and the direction for innovation. Composite ISRJ signals exhibit a 
+Aerospace Science and Technology 168 (2026) 111218 
+3 
+G. Wang, Q. Lv, L. Liu et al.
+Fig. 2. The schematic diagram of Composite ISRJ. (a) Time-Domain schematic diagram of Composite ISRJ. (b) Time-Frequency Domain schematic diagram of 
+Composite ISRJ.
+Fig. 3. Composite ISRJ Parameter Measurement Framework.
+unique duality of coexisting ‘ﬁne-grained local structures’ and ‘global 
+long-range dependencies’. On one hand, the time-domain signal is com-
+posed of numerous discontinuous jamming ‘slices’, each internally con-
+taining high-frequency, detail-rich pulse waveform features; this repre-
+sents quintessential localized information. On the other hand, multiple 
+jamming slices originating from the same source (particularly in RFJ) 
+are highly correlated or even identical in content, despite potentially 
+being separated by large time intervals. Furthermore, slices from dif-
+ferent sources randomly interleave, creating complex global contextual 
+relationships.
+This duality in the signal’s characteristics imposes exceptionally de-
+manding, and even seemingly contradictory, requirements on the mod-
+eling capabilities of the separation network. While our overall frame-
+work adopts the eﬃcient  ‘encoder-mask-decoder’ paradigm established 
+by the classic speech separation model Conv-TasNet [28], we con-
+tend that its core masking network-the Temporal Convolutional Net-
+work (TCN)-is inadequate for the intricate task of processing compos-
+ite ISRJ signals. The reason lies in a mismatch of signal morphology. 
+TCN-based models, such as Conv-TasNet and its powerful successor, 
+Conv-TasNet++, are meticulously designed for continuous signals like 
+speech. They build long-range context by stacking dilated convolutions 
+layer by layer. However, composite ISRJ signals are characterized by 
+their ‘fragmented-slice’ structure-short bursts of high-frequency energy 
+separated by silent periods. A standard TCN may inadvertently blur fea-
+tures across the sharp temporal boundaries of these slices, potentially 
+leading to performance degradation.
+Therefore, this paper completely reconstructs the ‘engine’ of the sep-
+aration task-the mask network. To resolve the aforementioned ‘local-
+Aerospace Science and Technology 168 (2026) 111218 
+4 
+G. Wang, Q. Lv, L. Liu et al.
+Fig. 4. Detailed Architecture of CISRJ-SN Network. (a) Architecture of the CISRJ-SN Network. (b) Attention Block. (c) 1-D Conv block.
+global’ modeling dilemma, we discard the TCN and innovatively de-
+sign a hierarchical hybrid attention-based mask network (structured as 
+shown in Fig. 4b). The core ‘Attention Block’ of this network deeply fuses 
+the powerful local feature extraction capabilities of one-dimensional 
+convolution (1-D Conv) with the global contextual awareness of the GAU 
+[25], which is speciﬁcally designed for eﬃcient  long-sequence model-
+ing. The self-attention mechanism of the GAU is particularly adept at 
+modeling the sparse long-range dependencies unique to ISRJ signals 
+(e.g., the repetitive pulses in RFJ) by establishing direct connections 
+between distant yet related signal segments. This hybrid architecture, 
+which synergistically models both ‘local perception’ and ‘global depen-
+dencies’, represents a more eﬀective and problem-speciﬁc separation 
+strategy. This design eﬀectively resolves the issue of long-term tem-
+poral correlation decay caused by the limited receptive ﬁelds of tra-
+ditional convolutional networks. Consequently, it surpasses the conven-
+tional Conv-TasNet architecture in both theory and technical implemen-
+tation, providing a solid model foundation for high-precision interfer-
+ence separation.
+3.1.1.  Encoder
+The encoder serves to perform feature extraction. It comprises a 1-
+D Conv block (as depicted in Fig. 4c) followed by a Rectiﬁed Linear 
+Unit (ReLU) activation function. This conﬁguration processes the input 
+sequence by mapping it into a higher-dimensional feature space, thereby 
+providing a rich representation for subsequent processing stages. Let the 
+convolution kernel size of the encoder be 𝑘, the stride be 𝑘∕2, and the 
+number of ﬁlters be 𝑁. For an input sequence 𝑥 ∈ 𝑅𝐵×1×𝐿, where 𝐵 is 
+the batch size and 𝐿 is the temporal length, the encoder produces an 
+output sequence:
+ℎ = ReLU(ConvlD(𝑥)) (4)
+where ℎ ∈ 𝑅𝐵×𝑁×𝐿, 𝐿 = 2(𝑇 − 𝑘)∕𝑘 + 1, Conv1D refers to the 1-D Conv 
+block. For simplicity in subsequent derivations, the batch size 𝐵 will be 
+uniformly omitted.
+3.1.2.  Masking net
+The masking network constitutes the core of the separation frame-
+work, tasked with the critical function of performing a non-linear map-
+ping from the mixed feature representation generated by the encoder to 
+𝐶 distinct masks, one for each jamming source. The overall workﬂow of 
+this network is depicted in Fig. 4a.
+1) Input Pre-processing: The feature sequence ℎ ∈ 𝑅𝑁×𝐿 from the en-
+coder (where 𝐿 is the number of time steps and 𝑁 is the feature di-
+mension) ﬁrst undergoes a pre-processing stage. It is passed through 
+a Layer Normalization step to improve training stability, after which 
+Positional Encodings are added to provide temporal order informa-
+tion.
+2) Core Separation Module: The pre-processed features are fed into 
+a core separation module comprising multiple stacked Attention 
+Blocks. These blocks iteratively reﬁne the features in a serial conﬁg-
+uration. Each Attention Block, through the synergistic interplay of 
+its internal convolutional operations and self-attention mechanism, 
+performs hybrid modeling of both ﬁne-grained local features and 
+global long-range dependencies. Furthermore, residual connections 
+between these blocks ensure eﬀective gradient propagation, which 
+enhances the stability of the deep network’s training process.
+3) Mask Generation and Output: Following the deep processing by the 
+ﬁnal Attention Block, the feature sequence enters the mask genera-
+tion stage. It is ﬁrst passed through a ReLU activation function, after 
+which a pointwise convolution expands the feature dimension from 
+𝑁 to 𝑁 × 𝐶 to estimate the respective mask vectors for the 𝐶 tar-
+get sources. Finally, a Sigmoid activation function normalizes these 
+mask vectors to the range [0, 1]. Each value in this range can be intu-
+itively interpreted as a conﬁdence score-representing the likelihood 
+that the features at a given time step belong to a speciﬁc source-
+thereby providing a precise weight for the subsequent multiplicative 
+masking operation.
+Aerospace Science and Technology 168 (2026) 111218 
+5 
+G. Wang, Q. Lv, L. Liu et al.
+3.1.3.  Attention block
+As illustrated in Fig. 4b, the Attention Block serves as the core engine 
+that drives the separation process within the CISRJ-SN network. Moving 
+beyond the monolithic architecture of the standard Transformer [29], 
+we have engineered a hybrid architecture that deeply integrates 1-D 
+Conv with a gated attention mechanism. The design draws its inspiration 
+from the GAU [25], an architecture proposed for eﬃcient  long-sequence 
+modeling. It is engineered to synergistically and eﬃciently  extract the 
+ﬁne-grained local features within composite ISRJ signals while simulta-
+neously modeling their global dependencies [30].
+The core processing workﬂow of this module can be conceptualized 
+as a parallel process of feature extraction and gated fusion:
+1) Parallel Feature Generation
+The input sequence, 𝑋 ∈ 𝑅𝐿×𝑁 , is concurrently passed through 
+three independent 1-D Conv branches. This parallel processing yields 
+three distinct tensors, 𝑈 , 𝑉 , and 𝐻, each designated for a speciﬁc 
+function:
+𝑈 = Conv1D(𝑋), 𝑉 = Conv1D(𝑋), 𝐻 = Conv1D(𝑋) (5)
+where, each Conv1D operation denotes a 1-D Conv block. This pro-
+cess generates three parallel feature pathways, each with a distinct 
+function:
+• Gating Path: This path generates the feature tensor 𝑈 ∈ 𝑅𝐿×2𝑁 , 
+which functions as a data-driven ‘gate’ to dynamically control the 
+subsequent ﬂow of information.
+• Content Path: This path yields the feature tensor 𝑉 ∈ 𝑅𝐿×2𝑁 , 
+which represents the ‘value’ of the signal. It contains the core in-
+formation content that is subsequently weighted and selected by 
+the attention mechanism.
+• Attention Path: This path produces the feature tensor 𝐻 ∈ 𝑅𝐿×𝑁 , 
+which is exclusively dedicated to the computation of attention 
+weights. The ‘query(𝑄)’ and ‘key(𝐾)’ vectors for the attention 
+mechanism are derived from this tensor.
+For the U and V pathways, we employ an expansion factor of 2, 
+increasing the feature dimension from 𝑁 to 2𝑁. This design is in-
+spired by the Gated Linear Unit (GLU) [31] paradigm and serves 
+a dual purpose: it enhances the network’s representational capac-
+ity and, more importantly, facilitates a powerful data-driven gating 
+mechanism. The expanded 𝑈 tensor acts as an intelligent ﬁlter, dy-
+namically controlling the information ﬂow from the 𝑉  (content) ten-
+sor. In contrast, the 𝐻 pathway (the attention pathway) maintains 
+the dimension 𝑁. This is because its function is highly specialized: it 
+is used solely to generate the 𝑄 and 𝐾 required for computing atten-
+tion weights. Expanding the dimension for this pathway would not 
+only unnecessarily increase the computational complexity of the at-
+tention mechanism but would also be inconsistent with its core task 
+as a basis for similarity computation. This asymmetric design en-
+sures both clarity in the functional roles and overall computational 
+eﬃciency  of the model.
+2) Position-Aware Attention Computation
+The feature tensor 𝐻, originating from the attention pathway, 
+is ﬁrst enhanced through a Scale & Oﬀset adjustment and is then 
+infused with positional information via Rotary Position Embed-
+ding (RoPE) [32]. The convolution ﬁrst extracts local patterns with 
+translation equivariance, after which RoPE endows these patterns 
+with their absolute/relative temporal context. This enables the self-
+attention mechanism to compute similarity based not only on fea-
+ture content but also on their position within the sequence, thereby 
+compensating for the attention mechanism’s inherent insensitivity to 
+sequence order. See Appendix A for the mathematical derivation.
+𝐻𝑛𝑜𝑟𝑚 = 𝛾ℎ ⊙ 𝐻 + 𝛽ℎ (6)
+𝐻𝑟𝑜𝑝𝑒 = 𝑅𝑜𝑃 𝐸(𝐻𝑛𝑜𝑟𝑚) = 𝐻𝑛𝑜𝑟𝑚 ⊙ 𝑒𝑖𝑚𝜃 (7)
+where 𝛾ℎ, 𝛽ℎ represent learnable scaling and shifting parameters, re-
+spectively, and 𝜃 is a frequency parameter. RoPE injects absolute or 
+relative positional information into the signal by performing rota-
+tions in the complex domain, which compensates for the inherent 
+insensitivity of the self-attention mechanism to sequence order. Fol-
+lowing this enhancement, the 𝑄 and 𝐾 matrices are generated from 
+the processed feature tensor. The attention matrix 𝐴, is subsequently 
+computed via a modiﬁed attention formula as follows:
+𝑄 = 𝑊𝑞 × 𝐻𝑟𝑜𝑝𝑒 (8)
+𝐾 = 𝑊𝑘 × 𝐻𝑟𝑜𝑝𝑒 (9)
+𝐴 = ReLU2(𝑄𝐾 𝑇 + 𝐵) (10)
+3) Gated Information Fusion and Output
+This constitutes the most distinctive stage of the module’s work-
+ﬂow. Initially, the attention matrix 𝐴 is multiplied with the fea-
+ture tensor 𝑉  from the content path to yield 𝐴𝑉 , a feature tensor 
+weighted by the global context. Subsequently, this result undergoes 
+an element-wise multiplication with the feature tensor 𝑈 from the 
+gating path:
+𝑂
+′
+= 𝐶𝑜𝑛𝑣(𝑈 ⊙ 𝐴𝑉 ) (11)
+𝑂 = 𝑋 + 𝑂
+′
+(12)
+where, 𝑈 acts as an intelligent gate, dynamically determining which 
+information within 𝐴𝑉  is signiﬁcant and should be retained, and 
+which is extraneous and should be suppressed. This gating mecha-
+nism renders the feature fusion process both more ﬂexible and ef-
+ﬁcient. Finally, the fused features, 𝑂′ are processed by another 1-D 
+Conv block for further reﬁnement and then added to the module’s 
+original input 𝑋, via a residual connection to form the ﬁnal output 
+𝑂. The residual connection ensures that the network modiﬁes the in-
+put only when necessary, which signiﬁcantly stabilizes the training 
+process.
+3.1.4.  Decoder
+The decoder stage constitutes the ﬁnal link in the signal separation 
+task, with the primary objective of precisely reconstructing the high-
+dimensional feature representation from the masking network back into 
+an interpretable, one-dimensional time-domain waveform.
+This process begins by performing an element-wise multiplication 
+between the initial mixed feature sequence ℎ (from the encoder), and 
+the 𝐶 masks 𝑀𝑗 , estimated by the masking network: ℎ
+′
+𝑗 = 𝑀𝑗 ⊙ ℎ. In-
+tuitively, this step can be conceptualized as applying a ’ﬁlter’ (i.e., the 
+mask) to suppress extraneous information, thereby isolating and reﬁn-
+ing the feature sequence ℎ
+′
+𝑗 corresponding to each individual jamming 
+component.
+Subsequently, each of the 𝐶 isolated feature sequences is indepen-
+dently processed by the decoder. The core component of the decoder is 
+a transposed convolutional layer. Architecturally, it is designed as the 
+’mirror image’ of the encoder, employing identical kernel size and stride 
+parameters. This symmetrical design is of critical importance, as it en-
+sures that the up-sampling process precisely inverts the down-sampling 
+operation of the encoding stage. This allows the feature sequence to be 
+losslessly restored to its original temporal resolution, ultimately yielding 
+the estimated time-domain source signal ̂ 𝑠𝑗 .
+̂ 𝑠𝑗 = TransposedConv1D(ℎ
+′
+𝑗 ) (13)
+where ̂ 𝑠𝑗 denotes the ﬁnal estimated source signal.
+3.2.  The composite ISRJ parameter estimation network
+Although the CISRJ-SN separation network can eﬀectively suppress 
+noise and disentangle individual interference components, its output 
+time-domain signal still needs to be binarized to be converted into a 
+discrete binary sequence suitable for parameter statistics. It is thanks 
+to the high ﬁdelity of the signal output by this network that we were 
+able to design a much simpler and more eﬃcient  parameter measure-
+ment algorithm. This algorithm discards the cumbersome preprocess-
+ing steps of traditional methods (such as ﬁltering and smoothing) and 
+Aerospace Science and Technology 168 (2026) 111218 
+6 
+G. Wang, Q. Lv, L. Liu et al.
+avoids the introduction of additional hyperparameters, thereby signiﬁ-
+cantly enhancing the simplicity and robustness of the overall method. 
+The computational framework is outlined in Algorithm 1.
+3.2.1.  Adaptive signal binarization
+When binarizing the separated signal, we employ an eﬃcient  adap-
+tive thresholding strategy. The eﬀectiveness of this strategy is built upon 
+the powerful performance of the front-end separation network and the 
+robustness of the back-end clustering algorithm. For each separated sig-
+nal sequence 𝑥(𝑡), its decision threshold 𝑇 is dynamically set to a ﬁxed 
+fraction 𝛼, of its own maximum peak amplitude:
+𝑇 = 𝛼 ⋅ max(|𝑥(𝑡)|) (14)
+Here, 𝛼 is a sensitivity parameter used to balance signal detection and 
+noise suppression. In the experiments of this study, this parameter was 
+set to 0.2. This method is adaptive because it dynamically adjusts the 
+threshold level based on the energy strength of each individual signal.
+Subsequently, the amplitude of the separated ISRJ signal is com-
+pared against this dynamic threshold. If the signal amplitude exceeds 
+the threshold, the corresponding state is classiﬁed as ‘forwarding’ (and 
+assigned a value of 1); otherwise, it is classiﬁed as ‘sampling’ (and as-
+signed a value of 0). This adaptive binarization process signiﬁcantly 
+enhances the accuracy and robustness of the ﬁnal state classiﬁcation.
+𝑠[𝑡] =
+{
+1 𝑖𝑓 𝑥[𝑡] > 𝑇
+0 𝑜𝑡ℎ𝑒𝑟𝑤𝑖𝑠𝑒
+(15)
+where 𝑠[𝑡] denotes the binarized ISRJ signal, where a value of 𝑠[𝑡]=1 
+indicates the ‘forwarding’ state, and a value of 𝑠[𝑡]=0 signiﬁes the ‘sam-
+pling’ or quiescent state.
+Algorithm 1 Composite ISRJ Parameter Estimation Algorithm.
+1: Input:
+2: 𝑥: A separated single-component ISRJ time-domain signal.
+3: 𝛼: Sensitivity coeﬃcient  for dynamic thresholding.
+4: 𝜀: Similarity threshold for clustering.
+5:  min_samples: Minimum number of samples to form a valid clus-
+ter.
+6: Output:
+7: ̂𝑇𝑙: Estimated slice width.
+8: ̂𝑇𝑓 : Estimated forwarding width.
+9: ̂𝑁𝐹 : Estimated number of forwardings.
+10: function Estimate_ISRJ_Parameters(𝑥, 𝑊 , 𝑘, 𝜀, 𝑚𝑖𝑛_𝑠𝑎𝑚𝑝𝑙𝑒𝑠)
+11:  Stage 1: Adaptive Signal Binarization
+12:  𝑇 ← Calculate_Adaptive_Threshold(𝑥, 𝛼)
+13:  𝑠 ← Binarize_Signal(𝑥, 𝑇 )
+14:  Stage 2: Parameter Decoupling and Statistical Reﬁnement
+15:  𝑊𝑙, 𝑊𝑓 ← Extract_Intervals(𝑠)
+16:  Stage 3: Parameter Estimation
+17:  ̂𝑇𝑙 ← Estimate_Dominant_Slicing_Width(𝑊𝑙, 𝜀)
+18:  ̂𝑇𝑓 ← Estimate_Dominant_Forwarding_Width(𝑊𝑓 , 𝜀,
+𝑚𝑖𝑛_𝑠𝑎𝑚𝑝𝑙𝑒𝑠)
+19:  ̂𝑁𝐹 ← round( ̂𝑇𝑓 ∕ ̂𝑇𝑙)
+return ̂𝑇𝑙, ̂𝑇𝑓 , ̂𝑁𝐹
+20: end function
+3.2.2.  Parameter reﬁnement via clustering-Based optimization
+By traversing the binary sequence generated in the previous step, we 
+initially obtain two datasets containing numerous raw measurements: a 
+set of slice widths (𝑊𝑙) and a set of forwarding widths (𝑊𝑓 ). However, 
+the binarization process, no matter how eﬃcient,  is inevitably aﬀected 
+by residual noise, which can lead to measurement jitter at the pulse 
+edges or, in rare cases, generate spurious pulses caused by noise spikes. 
+Consequently, these raw measurement datasets are unavoidably con-
+taminated by a certain number of outliers. Directly averaging this noisy 
+data would yield unreliable results. To mitigate the eﬀects of these bina-
+rization errors, we employ a density-based clustering algorithm. This ap-
+proach allows us to purify the true, dominant parameter values from the 
+noisy statistical datasets. It works by identifying dense clusters of mea-
+surements corresponding to the true parameter values while eﬀectively 
+isolating and discarding the sparse outliers generated by binarization in-
+accuracies. This method ensures that the ﬁnal parameter estimates are 
+both accurate and resilient to noise.
+We deﬁne a similarity metric: two data points, 𝑤𝑖 and 𝑤𝑗 , are consid-
+ered similar if their absolute diﬀerence ∣ 𝑤𝑖 − 𝑤𝑗 ∣, is less than or equal 
+to a predeﬁned threshold 𝜀 (e.g., 0.25μs). Otherwise, they are deemed 
+dissimilar.
+The setting of the similarity threshold 𝜖, should be matched with 
+the system’s sampling interval 𝑇𝑠𝑎𝑚𝑝. A general guideline is to set 𝜖 as 
+an integer multiple of the sampling interval, i.e., 𝜖 = 𝑁tolerance × 𝑇samp , 
+where 𝑁𝑡𝑜𝑙𝑒𝑟𝑎𝑛𝑐𝑒 is an integer representing the tolerable number of sam-
+pling points of jitter. In this study, the system sampling rate is 100 MHz 
+(𝑇𝑠𝑎𝑚𝑝=0.01 𝜇𝑠), and we chose 𝑁𝑡𝑜𝑙𝑒𝑟𝑎𝑛𝑐𝑒 =25, thus setting 𝜖=0.25 𝜇𝑠. 
+For systems employing diﬀerent sampling rates, this guideline can be 
+used for adaptive adjustment, thereby ensuring the generalizability of 
+the method.
+To this end, our core strategy is to employ a density-based clustering 
+algorithm. This approach allows us to purify the authentic, dominant pa-
+rameter values from the noisy statistical dataset by eﬀectively isolating 
+them from the outliers.
+3.2.3.  Parameter estimation
+1) Slice Width Estimation
+The slice width is estimated from the dominant set of slice width 
+measurements 𝑊𝑙. The ﬁnal estimate ̂𝑇𝑙 is deﬁned as the value that 
+maximizes the number of neighboring data points within a radius of 
+𝜀. This procedure eﬀectively identiﬁes the mode of the measurement 
+distribution and is formulated as follows:
+̂𝑇𝑙 = arg max
+𝑤𝑙
+∑
+𝑤𝑖∈𝑊𝑙
+(∣ 𝑤𝑖 − 𝑤𝑙 ∣≤ 𝜀) (16)
+where, ̂𝑇𝑙 denotes the estimated slice width; 𝑊𝑙 represents the dom-
+inant set of slice width measurements; 𝜀 is the similarity threshold, 
+set here to 0.25μs; and 𝑤𝑖, 𝑤𝑙 are two distinct data points within the 
+set 𝑊𝑙.
+2) Forwarding Width Estimation
+Density-based clustering is applied to the dominant set of for-
+warding widths 𝑊𝑓 . Clusters with a sample count below a predeﬁned 
+threshold (e.g., singleton clusters) are pruned as outliers. The ﬁnal 
+estimate for the forwarding width ̂𝑇𝑓 , is then obtained by averaging 
+the remaining samples. This can be expressed as:
+̂𝑇𝑓 = 1
+𝑁
+𝑁∑
+𝑗=1
+𝑤𝑓 𝑗 (17)
+where ̂𝑇𝑓 is the estimated forwarding width, 𝑁 is the number of 
+data points in the dominant set 𝑊𝑓 after outlier removal, and 𝑤𝑓 𝑗
+represents the individual data points within this pruned set.
+3) Number of Forwardings Estimation
+The estimated number of forwardings ̂𝑁𝐹 , for each ISRJ com-
+ponent is calculated from the previously estimated slice width and 
+forwarding width. Based on the characteristics of ISRJ, the estimated 
+number of forwardings is computed using the following formula:
+̂𝑁𝐹 =
+̂𝑇𝑓
+̂𝑇𝑙
+(18)
+In summary, this algorithm ﬁrst addresses the issue of signal ampli-
+tude ﬂuctuations through dynamic binarization. It then mitigates the 
+Aerospace Science and Technology 168 (2026) 111218 
+7 
+G. Wang, Q. Lv, L. Liu et al.
+Table 1 
+Conﬁguration of Parameters for the Composite ISRJ Dataset.
+Parameters Value (Range) Unit
+Pulse Width 15 µs
+Pulse Repetition Interval 40 µs
+Sampling Rate 100 MHz
+Slice Width 1∼3 µs
+Number of Forwarding 1∼3 –
+problem of noisy measurements via clustering-based reﬁnement. This 
+two-pronged approach thereby achieves precise and robust parameter 
+resolution for fragmented ISRJ signals.
+4.  Experimental analysis
+The preceding sections have elaborated on the theoretical design of 
+our proposed framework, but how does it perform in complex, real-
+world environments? To systematically address this pivotal question, we 
+have designed a series of rigorous and progressively challenging experi-
+ments to provide robust empirical support. Our experimental evaluation 
+is structured around the following key research questions:
+1) Performance Superiority: Does our proposed method exhibit a sig-
+niﬁcant advantage in measurement accuracy compared to current 
+state-of-the-art techniques?
+2) Environmental Robustness: Can the method maintain stable and re-
+liable performance under adverse electromagnetic conditions, such 
+as low JNR environments?
+3) Model Eﬃciency  and Generalization: How dependent is the method 
+on the volume of training data? Can it overcome the limitations of 
+conventional methods, which are often restricted to LFM signals, and 
+demonstrate equal eﬃcacy  for complex waveforms like frequency-
+agile signals?
+4) Practical Application Potential: Can the outstanding performance ob-
+served in simulated environments be successfully translated to appli-
+cation scenarios involving real-world hardware systems?
+4.1.  Dataset
+To ensure the simulation closely approximates practical scenarios, 
+the parameters for each ISRJ component within the composite signal 
+were randomly generated. The JNR was also varied randomly within a 
+range of -10 to 20 dB. Using MATLAB, we generated datasets for both 
+dual-interference and triple-interference scenarios. For each scenario, 
+the dataset was partitioned into 5000 samples for training, 1000 for 
+validation, and 1000 for testing. The speciﬁc parameter conﬁgurations 
+are detailed in Table 1.
+4.2.  Training setup
+The model was trained on a single NVIDIA GeForce RTX 4060 GPU 
+with 8 GB of VRAM. For optimization, we utilized the scale-invariant 
+signal-to-distortion ratio (SI-SDR) [33] as the training loss function, 
+a metric widely adopted for evaluating source separation tasks. The 
+Adam optimizer [34] was employed to train the model for a total of 
+100 epochs, with a learning rate of 1𝑒−3 and a batch size of 8. To ensure 
+training stability, gradient clipping was applied to limit the norm of the 
+gradients to 5. For regularization, we used weight decay with a coef-
+ﬁcient of 1𝑒−4. Furthermore, we implemented a learning rate schedul-
+ing strategy: the learning rate was multiplied by 0.5 if the validation 
+loss did not improve for 3 consecutive epochs. Other network hyper-
+parameters are shown in Table 2. The model framework and dataset 
+will be made publicly available at the following GitHub repository: 
+https://github.com/wang2365883454/CISRJ-SN.
+Table 2 
+Hyper-parameters for CISRJ-SN.
+Model Value
+Encoder Output Dimension(𝑁) 512
+Encoder Kernel Size(𝐾)/Stride 16/8
+Attention Block Dimension 512
+No. Attention Block 24
+Activation Function Sigmoid
+4.3.  Evaluation metrics
+To comprehensively and quantitatively evaluate the performance of 
+our proposed framework, we have deﬁned six core metrics for measure-
+ment accuracy. These metrics are designed to assess not only the estima-
+tion accuracy of individual parameters but also the overall performance 
+of the system.
+Let the test set contain 𝑁𝑡𝑒𝑠𝑡 samples. For the 𝑖 − 𝑡ℎ test sample, the 
+ground truth values for the slice width, sampling interval, and number 
+of forwardings are denoted as 𝑇𝑙,𝑖, 𝑇𝑠,𝑖, and 𝑁𝐹 ,𝑖, respectively. The cor-
+responding estimated values generated by the model are ̂𝑇𝑙,𝑖, ̂𝑇𝑠,𝑖, and 
+̂𝑁𝐹 ,𝑖. Based on the typical requirements of eﬀective electronic counter-
+measures for system errors, we consider a parameter estimation to be 
+accurate when the slice width error does not exceed 0.15 𝜇𝑠 and the 
+forwarding width error does not exceed 0.25 𝜇𝑠. These tolerances re-
+ﬂect the precision required to reliably classify the interference intent 
+and conﬁgure a targeted response.
+1) Slice Width Measurement Accuracy 𝐴𝑇𝑙
+This metric assesses the model’s precision in measuring the slice 
+width (𝑇𝑙) of the jamming signals. It is deﬁned by the following for-
+mula:
+𝐴𝑇𝑙 = 1
+𝑁𝑡𝑒𝑠𝑡
+𝑁𝑡𝑒𝑠𝑡∑
+𝑖=1
+𝕀(| ̂𝑇𝑙,𝑖 − 𝑇𝑙,𝑖| ≤ 0.15𝜇𝑠) × 100 % (19)
+where 𝕀(⋅) is the indicator function, which evaluates to 1 if the con-
+dition is true, and 0 otherwise.
+2) Sampling Interval Measurement Accuracy 𝐴𝑇𝑠
+This metric assesses the model’s precision in measuring the sam-
+pling interval (𝑇𝑠)(𝑇𝑠 = 𝑇𝑙 + 𝑇𝑓 ) of the jamming signals. It is deﬁned 
+by the following formula:
+𝐴𝑇𝑠 = 1
+𝑁𝑡𝑒𝑠𝑡
+𝑁𝑡𝑒𝑠𝑡∑
+𝑖=1
+𝕀(| ̂𝑇𝑠,𝑖 − 𝑇𝑠,𝑖| ≤ 0.25𝜇𝑠) × 100 % (20)
+3) Number of Forwardings Accuracy 𝐴𝑁𝐹
+This metric evaluates the model’s accuracy in determining the 
+number of forwardings (𝑁𝐹 ). Since the number of forwardings is 
+an integer value, an estimation is considered correct only when the 
+estimated value is exactly equal to the ground truth value. Its formula 
+is deﬁned as:
+𝐴𝑁𝐹 = 1
+𝑁𝑡𝑒𝑠𝑡
+𝑁𝑡𝑒𝑠𝑡∑
+𝑖=1
+𝕀( ̂𝑁𝐹 ,𝑖 = 𝑁𝐹 ,𝑖) × 100 % (21)
+4) Total Measurement Accuracy 𝐴𝑡𝑜𝑡𝑎𝑙
+To assess the overall measurement eﬃcacy  of the system, we 
+deﬁne the Total Measurement Accuracy. This metric represents the 
+proportion of test samples for which all jamming parameters are es-
+timated correctly within their respective tolerance levels. It serves 
+as a more stringent indicator that better reﬂects the comprehensive 
+performance of the system. The formula is as follows:
+𝐴total = 1
+𝑁test
+𝑁test∑
+𝑖=1
+[ 𝕀(| ̂𝑇𝑙,𝑖 − 𝑇𝑙,𝑖| ≤ 0.15𝜇𝑠) ∧ 𝕀(| ̂𝑇𝑠,𝑖 − 𝑇𝑠,𝑖| ≤ 0.25𝜇𝑠) ∧ 𝕀( ̂𝑁𝐹 ,𝑖 = 𝑁𝐹 ,𝑖)]
+× 100 % (22)
+where ∧ denotes the logical AND operator.
+Aerospace Science and Technology 168 (2026) 111218 
+8 
+G. Wang, Q. Lv, L. Liu et al.
+Table 3 
+Comparison of Measurement Performance.
+ Scenarios  Metrics  DCPE-ISRJ  AE-YOLOv8  CSNet-ISRJ  Ours
+Dual-ISRJ
+𝐴𝑇𝑙
+(%)  67.2  87.5  93.3  99.7
+𝐴𝑇𝑠
+(%)  47.2  88.7  92.6  99.8
+𝐴𝑁𝐹
+(%)  72.2  90.6  97.6  99.9
+𝐴𝑡𝑜𝑡𝑎𝑙(%)  31.5  87.2  89.4  99.5
+𝑀𝐴𝐸 𝑇𝑙
+(𝜇𝑠)  -  0.045  0.034  0.013
+𝑀𝑆𝐸 𝑇𝑙
+(𝜇𝑠2)  -  0.058  0.038  0.015
+𝑀𝐴𝐸 𝑇𝑠
+(𝜇𝑠)  -  0.031  0.026  0.009
+𝑀𝑆𝐸 𝑇𝑠
+(𝜇𝑠2)  -  0.039  0.033  0.010
+ Parameters (𝑀)  N/A  21.2  11.5  20.1
+𝐺𝐹 𝐿𝑂𝑃 𝑠  N/A  47.3  10.1  15.5
+ Inference Time (𝑚𝑠)  N/A  670  510  720
+Multi-ISRJ
+𝐴𝑇𝑙
+(%)  27.9  86.2  93.0  94.8
+𝐴𝑇𝑠
+(%)  14.3  85.2  90.1  97.6
+𝐴𝑁𝐹
+(%)  61.9  87.3  98.2  98.6
+𝐴𝑡𝑜𝑡𝑎𝑙(%)  7.2  82.0  85.6  94.4
+𝑀𝐴𝐸 𝑇𝑙
+(𝜇𝑠)  -  0.061  0.062  0.036
+𝑀𝑆𝐸 𝑇𝑙
+(𝜇𝑠2)  -  0.072  0.066  0.041
+𝑀𝐴𝐸 𝑇𝑠
+(𝜇𝑠)  -  0.038  0.031  0.012
+𝑀𝑆𝐸 𝑇𝑠
+(𝜇𝑠2)  -  0.042  0.039  0.015
+ Parameters (𝑀)  N/A  25.9  15.1  25.8
+𝐺𝐹 𝐿𝑂𝑃 𝑠  N/A  68.9  14.7  21.5
+ Inference Time (𝑚𝑠)  N/A  970  712  956
+* GFLOPs, an abbreviation for Giga Floating-point Operations, is a met-
+ric used to quantify the computational complexity required for a single 
+forward pass of the model.
+* -: Due to the low overall accuracy, the MAE/MSE metrics for DCPE-
+ISRJ are not meaningful for comparison and are thus omitted.
+* N/A: As DCPE-ISRJ is a traditional signal processing algorithm that 
+does not involve a neural network model, these metrics are not appli-
+cable.
+5) Mean Absolute Error (𝑀𝐴𝐸 )
+To quantify the average magnitude of the estimation error for 
+the continuous parameters (𝑇𝑙 and 𝑇𝑠), we use the MAE, which is 
+deﬁned as:
+𝑀𝐴𝐸 𝑇𝑙 = 1
+𝑁test
+𝑁test∑
+𝑖=1
+||| ̂𝑇𝑙,𝑖 − 𝑇𝑙,𝑖
+||| (23)
+𝑀𝐴𝐸 𝑇𝑠 = 1
+𝑁test
+𝑁test∑
+𝑖=1
+||| ̂𝑇𝑠,𝑖 − 𝑇𝑠,𝑖
+||| (24)
+6) Mean Squared Error (𝑀𝑆𝐸 )
+To evaluate the variance of the estimation error and to more 
+heavily penalize larger errors, we use the MSE, which is deﬁned as:
+𝑀𝑆𝐸 𝑇𝑙 = 1
+𝑁test
+𝑁test∑
+𝑖=1
+(̂𝑇𝑙,𝑖 − 𝑇𝑙,𝑖
+)2
+(25)
+𝑀𝑆𝐸 𝑇𝑠 = 1
+𝑁test
+𝑁test∑
+𝑖=1
+(̂𝑇𝑠,𝑖 − 𝑇𝑠,𝑖
+)2
+(26)
+4.4.  Comparative experiments
+To demonstrate the superiority and advanced nature of our proposed 
+method, we have designed the following comparative experiments.
+4.4.1.  Comparative experiments with baseline methods
+To quantitatively evaluate the performance of our proposed method, 
+we selected three representative state-of-the-art methods as baselines 
+for comparison: DCPE-ISRJ, which employs the Conv-Tasnet network 
+as proposed in [23]; CSNet-ISRJ, from reference [35]; and AE-YOLOv8, 
+proposed in [24]. All methods were tested under both dual-component 
+(Dual-ISRJ) and multi-component (Multi-ISRJ) interference scenarios. A 
+detailed comparison of the performance results is presented in Table 3.
+Table 4 
+Comparison of Signal Separation Performance (SI-SDRi, in dB).
+Method Dual-ISRJ Multi-ISRJ
+DCPE-ISRJ N/A N/A
+AE-YOLOv8 N/A N/A
+CSNet-ISRJ 15.3 12.7
+CISRJ-SN (Ours) 20.9 17.8
+The experimental results clearly demonstrate the comprehensive ad-
+vantages of our method across multiple dimensions. In terms of mea-
+surement accuracy, our approach signiﬁcantly outperforms CSNet-ISRJ, 
+elevating the Total Accuracy (𝐴𝑡𝑜𝑡𝑎𝑙) from 85.6 % to 94.4 % (a relative 
+improvement of 10.3 %) in the most challenging multi-component sce-
+narios. Furthermore, in contrast to DCPE-ISRJ and AE-YOLOv8, which 
+respectively rely on speciﬁc JNR assumptions or time-frequency mor-
+phology for separation, our time-domain framework operates eﬀectively 
+without such prerequisites and adeptly handles challenges posed by sig-
+niﬁcant time-frequency overlap.
+The MAE and MSE metrics in Table 3 provide stronger validation 
+for our method’s superiority. In all test scenarios, our proposed method 
+achieves the lowest errors in estimating both slice width and forward-
+ing width by a signiﬁcant margin. Particularly in the most challenging 
+Multi-ISRJ scenario, our model’s MAE (0.012 𝜇𝑠) is over 60 % lower 
+than the next-best model. The lower MSE values also indicate that our 
+results are more stable, with fewer outliers having large deviations. This 
+exceptional precision directly showcases the key advantage of our hy-
+brid attention architecture in modeling complex temporal dependencies.
+We acknowledge that this leap in performance is attributable to the 
+more powerful hybrid attention architecture we designed, and it is ac-
+companied by a modest increase in model complexity. However, we con-
+tend that this cost-beneﬁt trade-oﬀ is well-justiﬁed. An inference time 
+of 956 ms for a single sample on an NVIDIA RTX 4060 GPU renders 
+the method suitable for numerous near-real-time or non-real-time anal-
+ysis tasks. We have designated model lightweighting as a key focus for 
+future work, with plans to enhance its operational eﬃciency  through 
+techniques such as pruning and quantization to meet more stringent 
+real-time processing requirements.
+Furthermore, to directly evaluate the performance of the interfer-
+ence separation network, we evaluated the Scale-Invariant Signal-to-
+Noise Ratio improvement (SI-SDRi) for methods that follow the signal 
+separation paradigm, with the results presented in Table 4.
+As shown in Table 4, our CISRJ-SN achieves SI-SDRi values of 20.9 dB 
+and 17.8 dB in the dual-component and multi-component scenarios, re-
+spectively. This represents a signiﬁcant improvement of over 5 dB in 
+both cases compared to CSNet-ISRJ (15.3 dB / 12.7 dB). This result 
+strongly demonstrates that our designed hybrid attention architecture 
+has superior performance in high-ﬁdelity waveform reconstruction. Fur-
+thermore, this conclusion is indirectly supported by our newly added 
+hyperparameter sensitivity analysis (Section 4.5.2). The fact that the 
+post-processing algorithm is highly robust to the selection of parameter 
+𝛼 indirectly corroborates that the signal output by the front-end separa-
+tion network is of high quality with a clear signal-to-noise ratio, which 
+is precisely why the subsequent processing can be so straightforward 
+and robust.
+4.4.2.  Analysis of robustness and stability
+The performance of an algorithm under low JNR conditions is a 
+critical benchmark for its robustness, stability, and practical engineer-
+ing value. To systematically evaluate the performance of our proposed 
+method in noisy environments, we designed the comparative experi-
+ments detailed in this section. We generated seven independent test 
+datasets, each containing 1000 unique samples. Each dataset was syn-
+thesized at a speciﬁc JNR level, covering seven levels in total: -10dB, 
+-5dB, 0 dB, 5 dB, 10 dB, 15 dB, and 20 dB. Although the jamming param-
+eters for each sample were random, the statistical distribution governing 
+Aerospace Science and Technology 168 (2026) 111218 
+9 
+G. Wang, Q. Lv, L. Liu et al.
+Fig. 5. Performance varies with the JNR. (a) Dual-ISRJ scenarios. (b) Multi-ISRJ scenarios.
+these parameters was held consistent across all datasets to ensure a fair 
+comparison. The SNR of the authentic signal was held constant at 0 dB. 
+All methods were then evaluated on each of these seven datasets sepa-
+rately, and the resulting average performance metrics were plotted as a 
+function of JNR to generate the curves in Fig. 5.
+Analysis of the data reveals that our proposed method signiﬁcantly 
+outperforms the baseline models under all tested JNR conditions. Fur-
+thermore, its performance curve exhibits a ﬂatter slope, demonstrating 
+superior stability. Even in the adverse environment where the JNR drops 
+to 0 dB, the measurement accuracy for critical parameters remains above 
+90 %. In the negative JNR range, when the JNR drops to -5 dB, the total 
+accuracy remains at a high level of around 75 %. When the JNR is fur-
+ther reduced to the harsh condition of -10 dB, its accuracy, while lower, 
+was still higher than the measurement accuracy of the baseline models at 
+0 dB, proving the model’s capability to resolve and estimate jamming pa-
+rameters even in a high-noise background. This exceptional robustness 
+is primarily attributable to our designed hybrid attention architecture, 
+which can synergistically extract robust local and global signal features 
+even from environments with strong background noise.
+4.4.3.  Evaluation of model eﬃciency  and generalization capability
+This section evaluates the learning eﬃciency  and generalization ca-
+pability of our proposed framework across diﬀerent signal modalities 
+through two distinct sets of experiments.
+1) Performance Analysis with Varying Training Sample Sizes
+In authentic aerospace electronic warfare environments, acquiring 
+and annotating vast, diverse datasets of jamming signals is often pro-
+hibitively diﬃcult  and expensive. Consequently, a model capable of ef-
+ﬁcient learning from limited samples to achieve high performance is of 
+immense practical value. To this end, we benchmarked our proposed 
+method against the AE-YOLOv8 and CSNet-ISRJ baselines under identi-
+cal conditions. Each model was trained on incrementally larger training 
+sets, with sample sizes progressively increasing from 1000 to 5,000, and 
+their performance was subsequently evaluated on a ﬁxed test set of 1000 
+samples.
+As illustrated in Fig. 6, the performance of all models improves with 
+an increasing number of training samples. However, at every data-scale 
+increment, our method consistently and signiﬁcantly surpasses the com-
+parative methods in measurement accuracy. The most critical ﬁnding 
+is that our approach, when trained with only 2000 samples, achieves 
+performance comparable to, or even exceeding that of, the CSNet-ISRJ 
+model trained on the full 5000-sample dataset.
+2) Adaptability Validation for Diverse Waveforms
+To enhance their anti-jamming capabilities, modern radar systems 
+often employ complex waveforms, such as those with frequency agility. 
+A practical interference parameter estimation system, therefore, must 
+not be conﬁned to analyzing conventional LFM signals but must be ca-
+pable of adapting to the radar’s own complex signal schemes. To vali-
+date the generalization capability of our method, we replaced the stan-
+dard LFM signals in our dataset with frequency-agile signals and re-
+evaluated our method’s parameter estimation performance under both 
+dual-component and multi-component interference scenarios.
+As presented in Table 5, our method demonstrates exceptional per-
+formance when processing frequency-agile signals, achieving total ac-
+curacies of 97.6 % and 83.4 % in dual- and multi-component scenar-
+ios, respectively. This superior generalization capability stems from the 
+fact that our time-domain model learns the structural patterns of the 
+interference rather than its speciﬁc morphology in the time-frequency 
+domain. Consequently, when the signal’s internal modulation changes 
+from LFM to frequency-agile, methods reliant on time-frequency
+morphology (such as AE-YOLOv8) fail due to drastic changes in 
+the target features. In contrast, our approach maintains its perfor-
+mance stability by capturing the fundamental behavioral nature of the
+interference.
+Aerospace Science and Technology 168 (2026) 111218 
+10 
+G. Wang, Q. Lv, L. Liu et al.
+Fig. 6. Performance varies with the training set size. (a) Dual-ISRJ scenarios. (b) Multi-ISRJ scenarios.
+Fig. 7. Hardware-in-the-Loop Simulation Platform.
+Fig. 8. Measured Results of Jamming Signals. (a) Jamming Time-Domain Modulus. (b) Jamming Time-Frequency Domain.
+Aerospace Science and Technology 168 (2026) 111218 
+11 
+G. Wang, Q. Lv, L. Liu et al.
+Fig. 9. Measured Results of Composite ISRJ. (a) Composite ISRJ Time-Domain Modulus. (b) Composite ISRJ Time-Frequency Domain.
+Fig. 10. Sensitivity Analysis(Multi-ISRJ). (a) Sensitivity Analysis of 𝛼. (b) Sensitivity Analysis of 𝜖.
+Table 5 
+Measurement Performance.
+Scenarios Metrics Result (%)
+Dual-ISRJ
+𝐴𝑇𝑙
+98.5
+𝐴𝑇𝑠
+98.4
+𝐴𝑁𝐹
+98.8
+𝐴𝑡𝑜𝑡𝑎𝑙 97.6
+Multi-ISRJ
+𝐴𝑇𝑙
+89.3
+𝐴𝑇𝑠
+91.6
+𝐴𝑁𝐹
+96.0
+𝐴𝑡𝑜𝑡𝑎𝑙 83.4
+4.4.4.  Experimental validation with measured data
+To deﬁnitively validate the eﬀectiveness and reliability of our pro-
+posed framework in a real-world physical environment, we constructed 
+a Hardware-in-the-Loop (HIL) experimental platform. As depicted in 
+Fig. 7, this platform comprises a multi-channel interference simulator, a 
+target generator, and a radar system. To ensure comparability with the 
+preceding simulations, the core radar and interference parameters were 
+kept consistent with those used in the simulation experiments. Due to 
+the power limitations of the hardware system, we generated four distinct 
+power levels of jamming signals by adjusting the transmission attenua-
+tion. A total of 2000 measured data samples were acquired by collect-
+ing 500 samples for each conﬁguration. This dataset was subsequently 
+partitioned into training, validation, and test sets according to a 6:2:2
+ratio.
+Analysis of the acquired data reveals the inherent complexity of real-
+world signals. As shown in Fig. 9, the measured composite jamming 
+signals exhibit signiﬁcant time-frequency overlap, consistent with our 
+simulations. More interestingly, we observed a ‘Forwarding Idle’ phe-
+nomenon (Fig. 8) that was not present in the idealized simulations. This 
+phenomenon refers to unexpected signal dropouts within certain peri-
+ods, even when the jammer is conﬁgured with an integer-multiple duty 
+cycle. These non-ideal eﬀects are likely caused by hardware latency or 
+imprecise timing control.
+The measured data was subsequently input into our model, with the 
+ﬁnal parameter estimation results summarized in Table 6. As can be seen 
+from the table, our method continues to perform exceptionally well, 
+even when confronted with measured data containing non-ideal eﬀects. 
+It achieved total accuracies of 97.4 % and 93.5 % in the dual- and multi-
+component scenarios, respectively. These results are highly consistent 
+with the performance achieved in our simulation experiments (99.5 % 
+and 94.4 %, respectively), demonstrating only a marginal diﬀerence in 
+performance.
+Aerospace Science and Technology 168 (2026) 111218 
+12 
+G. Wang, Q. Lv, L. Liu et al.
+Table 6 
+Field Measurement Performance.
+Scenarios Metrics Result (%)
+Dual-ISRJ
+𝐴𝑇𝑙
+98.5
+𝐴𝑇𝑠
+97.4
+𝐴𝑁𝐹
+98.8
+𝐴𝑡𝑜𝑡𝑎𝑙 97.4
+Multi-ISRJ
+𝐴𝑇𝑙
+98.5
+𝐴𝑇𝑠
+93.5
+𝐴𝑁𝐹
+97.5
+𝐴𝑡𝑜𝑡𝑎𝑙 93.5
+Table 7 
+Ablation Study of Core Architectural Components.
+Parameters 𝐴𝑡𝑜𝑡𝑎𝑙
+Proposed Full Model 98.5
+Variant 1: w/o Attention Mechanism 84.6
+Variant 2: Weakened Convolutional Module 91.5
+4.5.  Further analysis and ablation study
+To validate the eﬀectiveness and robustness of our proposed 
+framework from two perspectives-internal architecture and external 
+parameters-we designed the following experiments.
+4.5.1.  Ablation of core architecture components
+To validate the eﬃcacy  of the individual innovative components 
+within our proposed CISRJ-SN framework, we designed a series of ab-
+lation studies.
+1) Validating the Necessity of the Attention Mechanism: To demon-
+strate the indispensable role of the attention mechanism in captur-
+ing global dependencies, we designed a ‘convolution-only’ variant. 
+In this version, the GAU component within our ‘Attention Block’ was 
+removed, leaving only the deeply stacked 1-D Conv structure. This 
+eﬀectively degrades the model into a purely convolutional, deeper 
+network.
+2) Validating the Contribution of the Convolutional Module: To ver-
+ify the contribution of the convolutional module in capturing local 
+features, we designed a ‘quasi-pure attention’ variant. Speciﬁcally, 
+the deeply integrated 1-D Conv component within the ‘Attention 
+Block’ was either signiﬁcantly weakened or replaced with a simple 
+linear layer, making the architecture more closely resemble a stan-
+dard Transformer encoder layer.
+As presented in the Table 7, the comparative experimental results 
+demonstrate the superiority of our redesigned hybrid attention masking 
+network. Secondly, the performance degradation observed upon remov-
+ing either the attention mechanism or the convolutional fusion quantita-
+tively validates the necessity of our synergistic ’convolution-attention’ 
+design. Finally, the loss in accuracy incurred when using the simpli-
+ﬁed parameter estimation algorithm underscores the value of our robust 
+post-processing methodology.
+4.5.2.  Sensitivity analysis of hyperparameters
+Table 8 presents a sensitivity analysis of the model’s key hyperpa-
+rameters. We observed that performance improves as the number of at-
+tention blocks increases, eventually stabilizing and plateauing around 
+25 blocks. Furthermore, a dimensionality of Attention Block Dimen-
+sion=256 yielded the optimal performance. While larger block dimen-
+sions tended to perform better, further increasing Attention Block Di-
+mension from 256 to 512 oﬀered no signiﬁcant additional improvement.
+Furthermore, we also conducted an exhaustive sensitivity analysis 
+on the two core hyperparameters in our post-processing workﬂow: the 
+adaptive binarization coeﬃcient  𝛼, and the clustering similarity thresh-
+old 𝜖.
+Table 8 
+Ablation Study on Key Hyperparameters.
+ Encoder Kernel Size(𝐾)/Stride  Attention Block Dimension  No. Attention Block
+ 8/4  16/8  128  256  512  22  24  25
+ 89.2 %  98.8 %  97.3 %  99.1 %  99.0 %  95.3 %  98.6 %  98.6 %
+Fig. 10 visually illustrates the curves of parameter measurement 
+accuracy as these two parameters vary. For 𝛼 (Fig. 10a), there ex-
+ists a broad and robust plateau region from 0.02 to 0.7, within which 
+the system’s performance remains stable at a near-perfect level. For 𝜖
+(Fig. 10b), when its value is within the range of [0.2 𝜇𝑠, 1.0 𝜇𝑠], the 
+system’s performance is similarly maintained at the optimal level.
+This analysis result simultaneously demonstrates the superior per-
+formance of the signal separation network, as the parameter measure-
+ment module can achieve stable and reliable performance without the 
+need for precise and rigorous parameter ﬁne-tuning. This reﬂects the 
+method’s generalizability and highlights its value in practical applica-
+tions.
+5.  Conclusion
+Composite Interrupted Sampling Repeater Jamming poses a critical 
+threat to aerospace radar platforms. To mitigate this challenge, we pro-
+pose an end-to-end parameter estimation framework built upon a novel 
+hybrid attention architecture. Both simulations and hardware-in-the-
+loop experiments conﬁrm that the proposed framework achieves supe-
+rior performance under challenging conditions.
+Quantitatively, our method achieves an overall measurement accu-
+racy of 94.4 % in complex multi-component scenarios, representing a 
+10.3 % relative improvement over the state-of-the-art CSNet-ISRJ ap-
+proach. Beyond accuracy, the framework delivers outstanding precision, 
+reducing the mean absolute error (MAE) of sampling interval estimation 
+by more than 60 %, indicating far greater stability and reliability. More-
+over, its robustness has been validated in low JNR environments: even 
+when JNR drops to -5 dB, the measurement accuracy of key parameters 
+remains above 90 %. Its remarkable data eﬃciency  and adaptability to 
+diverse waveforms, such as frequency-agile signals, further highlight its 
+potential for enhancing the electromagnetic self-protection capabilities 
+of aerospace platforms.
+Despite these promising results, we acknowledge certain limitations. 
+Although the training dataset is diverse, it does not cover all conceivable 
+ISRJ variants. In addition, the pursuit of high performance comes with 
+a moderate increase in model complexity. Future work will focus on ex-
+panding the dataset to include more sophisticated jamming strategies, as 
+well as applying model compression and data augmentation techniques 
+to improve real-time performance and generalization.
+CRediT authorship contribution statement
+Guozheng Wang: Writing – original draft, Software, Methodology, 
+Conceptualization; Qinzhe Lv: Writing – review & editing, Investiga-
+tion, Formal analysis; Liyi Liu: Resources, Data curation; Rong Yang:
+Visualization, Validation; Bowen Bie: Supervision, Project administra-
+tion; Yaojun Wu: Writing – review & editing, Supervision; Yinghui 
+Quan: Supervision, Project administration, Funding acquisition.
+Data availability
+Data will be made available on request.
+Declaration of competing interest
+The authors declare that they have no known competing ﬁnancial 
+interests or personal relationships that could have appeared to inﬂu-
+ence the work reported in this paper. The authors declare the following 
+Aerospace Science and Technology 168 (2026) 111218 
+13 
+G. Wang, Q. Lv, L. Liu et al.
+ﬁnancial interests/personal relationships which may be considered as 
+potential competing interests: 
+Appendix A.  Mathematical Principles of the Synergy between 
+Convolution and RoPE
+In our hybrid Attention Block, the one-dimensional convolution (1-D 
+Conv) and Rotary Position Embedding (RoPE) are not simply stacked; 
+instead, they form a close synergistic and complementary relationship in 
+terms of functionality. The core idea is that the convolution is responsi-
+ble for constructing local, structured features with translation equivari-
+ance, while RoPE encodes the positional relationships of these features 
+within the global sequence, thereby enabling the attention mechanism 
+to perceive long-range dependencies. Below, we will mathematically 
+elucidate their respective roles and derive how they work in synergy.
+(1) 1-D Conv: Constructing Locally Position-Aware Features
+Let us ﬁrst deﬁne the 1-D Conv operation. Given an input sequence 
+𝑋 = {𝑥1, 𝑥2, ⋯ , 𝑥𝐿}, where 𝑥𝑡 ∈ ℝ, the output feature ℎ𝑡 at position 𝑡
+after passing through a 1-D Conv layer with a kernel 𝑊 ∈ ℝ𝑘 and a bias 
+𝑏 can be expressed as:
+ℎ𝑡 = 𝑓
+( 𝑘∑
+𝑖=1
+𝑊𝑖 ⋅ 𝑥𝑡+𝑖−⌊𝑘∕2⌋ + 𝑏
+)
+(A.1)
+where 𝑓 is the activation function (e.g., ReLU), and 𝑘 is the size of the 
+kernel. From this formula, we can see two key properties of convolution:
+1) Locality: The output ℎ𝑡 depends only on a local neighborhood (re-
+ceptive ﬁeld) of size 𝑘 centered at position 𝑡 in the input sequence 
+𝑋. This makes convolution highly suitable for extracting local struc-
+tured information, such as the high-frequency, ﬁne-grained wave-
+form details within each slice.
+2) Translation Equivariance: If the input sequence 𝑋 is shifted, the out-
+put feature sequence 𝐻 = {ℎ1, ℎ2, ⋯} will also undergo the same 
+shift. This means that the convolution is capable of recognizing the 
+same local patterns as they appear at diﬀerent positions.
+Therefore, after processing by the initial 1-D Conv layer in our model, 
+the resulting feature tensor 𝐻 ∈ ℝ𝐿×𝑁 is no longer a sequence of raw, 
+independent sample points, but rather a feature sequence imbued with 
+rich local structural information. Each feature vector ℎ𝑡 represents a 
+highly condensed representation of the original signal’s local morphol-
+ogy around timestep 𝑡.
+(2) Positional Insensitivity of the Standard Self-Attention Mechanism
+Next, we input the feature sequence 𝐻 into the self-attention module. 
+The core of standard self-attention is the computation of dot-product 
+similarity between a Query and a Key. For any two positions 𝑡 and 𝑚 in 
+the sequence, the attention score is calculated as follows:
+𝑞𝑡 = 𝑊𝑞ℎ𝑡 (A.2)
+𝑘𝑚 = 𝑊𝑘ℎ𝑚 (A.3)
+𝐴𝑡𝑡𝑒𝑛𝑡𝑖𝑜𝑛𝑆𝑐𝑜𝑟𝑒 (𝑡, 𝑚) =
+𝑞𝑇
+𝑡 𝑘𝑚
+√
+𝑑𝑘
+(A.4)
+Here, 𝑊𝑞 and 𝑊𝑘 are weight matrices. The critical weakness of this com-
+putation is that it is permutation-invariant with respect to position. That 
+is to say, if we swap the positions of ℎ𝑡 and ℎ𝑚 in the input sequence, the 
+value of the attention score between them, 𝑞𝑇
+𝑡 𝑘𝑚, remains unchanged. 
+The attention mechanism is only concerned with "how similar the fea-
+ture contents are," while completely ignoring "how far apart these two 
+features are in the sequence." This prevents it from modeling critical 
+information such as the periodicity and temporal relationships of the 
+signal.
+(3) RoPE: Injecting Relative Positional Information into the Attention 
+Mechanism
+RoPE solves the aforementioned problem in a very elegant manner. 
+It incorporates absolute position information, 𝑡 and 𝑚, into 𝑞𝑡 and 𝑘𝑚
+respectively, yet the ﬁnal dot-product result depends only on the relative 
+position, (t - m).
+To simplify the derivation, let us consider a two-dimensional exam-
+ple (the high-dimensional case can be viewed as a combination of mul-
+tiple 2𝐷 planes). Assume we have 𝑞𝑡 = (𝑥𝑞, 𝑦𝑞) and 𝑘𝑚 = (𝑥𝑘, 𝑦𝑘). RoPE 
+treats these as vectors and rotates them according to their respective 
+positions 𝑡 and 𝑚:
+𝑞′
+𝑡 = 𝑓 (𝑞𝑡, 𝑡) =
+(cos(𝑡𝜃) − sin( 𝑡𝜃)
+sin(𝑡𝜃) cos( 𝑡𝜃)
+)(𝑥𝑞
+𝑦𝑞
+)
+𝑘′
+𝑚 = 𝑓 (𝑘𝑚, 𝑚) =
+(cos(𝑚𝜃) − sin( 𝑚𝜃)
+sin(𝑚𝜃) cos( 𝑚𝜃)
+)(𝑥𝑘
+𝑦𝑘
+) (A.5)
+Here, 𝜃 is a pre-deﬁned, non-learnable frequency parameter. Now, let 
+us compute the dot product of the RoPE-transformed query and key, 
+(𝑞′
+𝑡 )𝑇 𝑘′
+𝑚:
+(𝑞′
+𝑡 )𝑇 𝑘′
+𝑚 = (𝑥𝑞 cos(𝑡𝜃) − 𝑦𝑞 sin(𝑡𝜃))(𝑥𝑘 cos(𝑚𝜃) − 𝑦𝑘 sin(𝑚𝜃))
++ (𝑥𝑞 sin(𝑡𝜃) + 𝑦𝑞 cos(𝑡𝜃))(𝑥𝑘 sin(𝑚𝜃) + 𝑦𝑘 cos(𝑚𝜃)) (A.6)
+Expanding and grouping like terms:
+= (𝑥𝑞𝑥𝑘 + 𝑦𝑞𝑦𝑘)(cos(𝑡𝜃) cos(𝑚𝜃) + sin(𝑡𝜃) sin(𝑚𝜃))
++ (𝑥𝑞𝑦𝑘 − 𝑦𝑞𝑥𝑘)(sin(𝑡𝜃) cos(𝑚𝜃) − cos(𝑡𝜃) sin(𝑚𝜃)) (A.7)
+Using the trigonometric angle subtraction identities, cos(𝐴 − 𝐵) =
+cos 𝐴 cos 𝐵 + sin 𝐴 sin 𝐵 and sin(𝐴 − 𝐵) = sin 𝐴 cos 𝐵 − cos 𝐴 sin 𝐵:
+= (𝑥𝑞𝑥𝑘 + 𝑦𝑞𝑦𝑘) cos((𝑡 − 𝑚)𝜃) + (𝑥𝑞𝑦𝑘 − 𝑦𝑞𝑥𝑘) sin((𝑡 − 𝑚)𝜃) (A.8)
+This ﬁnal result is crucial, from which we can observe:
+1) The result is composed of two parts: one is the original dot product 
+of the vectors, 𝑞𝑇
+𝑡 𝑘𝑚 = 𝑥𝑞𝑥𝑘 + 𝑦𝑞𝑦𝑘, and the other is a term related to 
+their 2𝐷 cross-product.
+2) Most importantly, all terms involving the absolute positions 𝑡 and 
+𝑚 now only appear as functions of their relative position, (𝑡 −
+𝑚) (i.e., in cos((𝑡 − 𝑚)𝜃) and sin((𝑡 − 𝑚)𝜃)).
+Thus, we can clearly see the synergistic mechanism between convo-
+lution and RoPE:
+Stage 1: Local Feature Extraction. The input signal 𝑋 ﬁrst passes 
+through a 1-D Conv network, generating a feature sequence 𝐻 that is 
+rich in local structural information. At this point, each vector ℎ𝑡 is al-
+ready a ‘snapshot’ and a ‘summary’ of the original signal within a small 
+neighborhood.
+Stage 2: Global Dependency Modeling. The feature sequence 𝐻 is fed 
+into the attention module. When computing the attention scores, RoPE 
+rotates the 𝑞𝑡 and 𝑘𝑚 vectors derived from ℎ𝑡 and ℎ𝑚. This enables the 
+attention mechanism, while comparing the similarity between two local 
+features ℎ𝑡 and ℎ𝑚, to also ‘perceive’ their separation by a distance of t 
+- m along the time axis.
+References
+[1] E.G. Alivizatos, M.N. Petsios, N.K. Uzunoglu, Architecture of a multistatic FMCW 
+direction-ﬁnding radar, Aerosp. Sci. Technol. 12 (2008) 169–176. https://doi.org/
+10.1016/j.ast.2007.05.001
+[2] F. Vitiello, F. Causa, R. Opromolla, G. Fasano, Radar/visual fusion with fuse-before-
+track strategy for low altitude non-cooperative sense and avoid, Aerosp. Sci. Tech-
+nol. 146 (2024) 108946. https://doi.org/10.1016/j.ast.2024.108946
+[3] H.-L. Li, S.-W. Liu, S.-W. Chen, Polsar ship characterization and robust detection at 
+diﬀerent grazing angles with polarimetric roll-Invariant features, IEEE Trans. Geosci. 
+Remote Sens. 62 (2024) 1–18. https://doi.org/10.1109/TGRS.2024.3474702
+[4] Y. Fan, B. Jiu, W. Pu, Z. Li, K. Li, H. Liu, Sensing jamming strategy from limited ob-
+servations: an imitation learning perspective, IEEE Trans. Signal Process. 72 (2024) 
+4098–4114. https://doi.org/10.1109/TSP.2024.3443121
+[5] J. Xu, W. Hong, H. Zhang, G. Wang, Y. Yu, Z.H. Jiang, An array antenna for both 
+long- and medium-range 77 ghz automotive radar applications, IEEE Trans. Anten-
+nas Propag. 65 (2017) 7207–7216. https://doi.org/10.1109/TAP.2017.2761549
+[6] C. Vasanelli, R. Batra, A.D. Serio, F. Boegelsack, C. Waldschmidt, Assessment of a 
+millimeter-wave antenna system for mimo radar applications, IEEE Antennas Wire-
+less Propagat. Lett. 16 (2017) 1261–1264. https://doi.org/10.1109/LAWP.2016.
+2631889
+Aerospace Science and Technology 168 (2026) 111218 
+14 
+G. Wang, Q. Lv, L. Liu et al.
+[7] K. Park, D. Lee, J. Seo, Dual-polarized gps antenna array algorithm to adap-
+tively mitigate a large number of interference signals, Aerosp. Sci. Technol. 78 
+(2018) 387–396. https://doi.org/10.1016/j.ast.2018.04.029. https://doi.org/10.
+1016/j.ast.2018.04.029
+[8] X. Wang, H. Ruan, Y. Liu, T. Huang, A random antenna subset selec-
+tion jamming method against multistatic radar system, Signal Process,  186, 
+2021. https://doi.org/10.1016/j.sigpro.2021.108126. https://doi.org/10.1016/j.
+sigpro.2021.108126
+[9] C. Kwak, Application of drfm in ecm for pulse type radar, in: Proc. IRMMW-THz, 
+IRMMW-THz, 2009, pp. 1–2. https://doi.org/10.1109/ICIMW.2009.5324673
+[10] A. Kale, R. Thirumuru, V.S.R. Pasupureddi, Wideband channelized sub-sampling 
+transceiver for digital RF memory based electronic attack system, Aerosp. Sci. Tech-
+nol. 51 (2016) 34–41. https://doi.org/10.1016/j.ast.2016.01.009
+[11] H. Dai, Y. Zhao, H. Su, Z. Wang, Q. Bao, J. Pan, Research on an Intra-Pulse Or-
+thogonal Waveform and Methods Resisting Interrupted-Sampling Repeater Jamming 
+within the Same Frequency Band,  15, 2023. Remote Sens. https://doi.org/10.3390/
+rs15143673
+[12] S. Dong, Y. Quan, W. Fang, H. Wang, Anti-intermittent sampling jamming method 
+based on frequency agile radar and k-means, in: Proc. ICR, 2021, ICR, 2021, 2021, 
+pp. 1140–1144. https://doi.org/10.1109/Radar53847.2021.10028648
+[13] Z. Wei, Z. Liu, B. Peng, R. Shen, ECCM Scheme against interrupted sampling repeater 
+jammer based on parameter-Adjusted waveform design, Sensors 18 (2018) 1141. 
+https://doi.org/10.3390/s18041141
+[14] K. Zhou, D. Li, Y. Su, T. Liu, Joint design of transmit waveform and mismatch ﬁlter 
+in the presence of interrupted sampling repeater jamming, IEEE Signal Process. Lett. 
+27 (2020) 1610–1614. https://doi.org/10.1109/LSP.2020.3021667
+[15] K. Zhou, D. Li, S. Quan, T. Liu, Y. Su, F. He, Sar waveform and mismatched ﬁlter 
+design for countering interrupted-sampling repeater jamming, IEEE Trans. Geosci. 
+Electron. 60 (2022) 1–14. https://doi.org/10.1109/TGRS.2021.3107328
+[16] A.F. Hatahet, H.A.B. Hassan, F.M.A. Kader, A.M. Abdelfattah, Parameters extraction 
+and suppression of interrupted sampling periodic repeater jammer in LFM pulse 
+compression radar, in: Proc. ITC, IEEE, ITC, IEEEAlexandria, Egypt; Alexandria, 
+Egypt, IEEE, 2023, pp. 551–556. https://doi.org/10.1109/ITC-Egypt58155.2023.
+10206342
+[17] Y. Kong, X. Wang, C. Wu, X. Yu, G. Cui, Active deception jamming recognition in 
+the presence of extended target, IEEE Geosci. Remote Sensing Lett. 19 (2022) 1–5. 
+https://doi.org/10.1109/LGRS.2022.3184997
+[18] Y. Kong, S. Xia, L. Dong, X. Yu, G. Cui, Compound jamming recognition via con-
+trastive learning for distributed MIMO radars, IEEE Trans. Veh. Technol. 73 (2024) 
+7892–7907. https://doi.org/10.1109/TVT.2024.3358996
+[19] Q. Qu, Y.-L. Wang, W. Liu, S. Wei, Q. Du, IRNet: Interference recognition networks 
+for automotive radars via autocorrelation features, IEEE Trans. Microw. Theory 
+Tech. 70 (2022) 2762–2774. https://doi.org/10.1109/tmtt.2022.3151635
+[20] C. Zhou, Q. Liu, X. Chen, Parameter estimation and suppression for DRFMâ€ based 
+interrupted sampling repeater jammer, IET Radar Sonar Navig. 12 (2018) 56–63. 
+https://doi.org/10.1049/iet-rsn.2017.0114
+[21] J. Chen, W. Wu, S. Xu, Z. Chen, J. Zou, Band pass ﬁlter design against interruptedâ€ 
+sampling repeater jamming based on timeâ€ frequency analysis, IET Radar Sonar 
+Navig. 13 (2019) 1646–1654. https://doi.org/10.1049/iet-rsn.2018.5658
+[22] Q. Lv, Y. Quan, M. Sha, W. Feng, M. Xing, Deep neural network-Based interrupted 
+sampling deceptive jamming countermeasure method, IEEE J. Sel. Top. Appl. Earth 
+Obs. Remote Sens. 15 (2022) 9073–9085. https://doi.org/10.1109/JSTARS.2022.
+3214969
+[23] L. Liu, Q. Lv, J. Liu, Y. Wu, Y. Quan, Adaptive parameter estimation for compound 
+interrupted sampling and repeating jamming, IEEE Signal Process. Lett. 31 (2024) 
+496–500. https://doi.org/10.1109/LSP.2024.3358751
+[24] Y. Wu, L. Huang, Z. Liu, M. Sha, L. Zhou, Y. Quan, Separation and parameter 
+measurement of compound intermittent sampling repeater jamming based on AE-
+YOLOv8, 2025, pp. 1. https://doi.org/10.1109/TIM.2025.3544369
+[25] W. Hua, Z. Dai, H. Liu, Q.V. Le, Transformer Quality in Linear Time, 2022. https:
+//doi.org/10.48550/arXiv.2202.10447
+[26] X. Wang, J. Liu, W. Zhang, Q. Fu, Z. Liu, X. Xie, Mathematic principles of interrupted-
+sampling repeater jamming (ISRJ), Sci. China Ser. F-Inf. Sci. 50 (2007) 113–123. 
+https://doi.org/10.1007/s11432-007-2017-y
+[27] Z. Liu, Y. Quan, S. Du, Y. Wu, M. Sha, M. Xing, A novel ECCM scheme against 
+interrupted-sampling repeater jamming using intra-pulse dual-parameter agile 
+waveform, Digit. Signal Process. 129 (2022) 103652. https://doi.org/10.1016/j.dsp.
+2022.103652
+[28] Y. Luo, N. Mesgarani, Conv-TasNet: Surpassing Ideal Timeâ€ “Frequency Magnitude 
+Masking for Speech Separation 27 (2019) 1256–1266. https://doi.org/10.1109/
+TASLP.2019.2915167
+[29] A. Vaswani, N. Shazeer, N. Parmar, J. Uszkoreit, L. Jones, A.N. Gomez, L. Kaiser, I. 
+Polosukhin, Attention Is All You Need, 2017. https://doi.org/10.48550/arXiv.1706.
+03762
+[30] S. Zhao, B. Ma, MossFormer: Pushing the Performance Limit of Monaural Speech 
+Separation using Gated Single-Head Transformer with Convolution-Augmented 
+Joint Self-Attentions, 2023. https://doi.org/10.48550/arXiv.2302.11824
+[31] Y. Dauphin, A. Fan, M. Auli, D. Grangier, Language modeling with gated convolu-
+tional networks, in: Proc. ICML, ICML, 2016. https://doi.org/10.48550/arXiv.1612.
+08083
+[32] J. Su, M. Ahmed, Y. Lu, S. Pan, W. Bo, Y. Liu, Roformer: enhanced transformer with 
+rotary position embedding, Neurocomputing 568 (2024) 127063. https://doi.org/
+10.1016/j.neucom.2023.127063
+[33] J.L. Roux, S. Wisdom, H. Erdogan, J.R. Hershey, SDR - half-baked or well done?, 
+2018. https://doi.org/10.48550/arXiv.1811.02508
+[34] D.P. Kingma, J. Ba, Adam: a method for stochastic optimization, in: Proc. ICLR, 
+ICLR, 2015, pp. 1–15. https://doi.org/10.48550/arXiv.1412.6980
+[35] Q. Lv, L. Liu, Y. Wu, M. Peng, Y. Quan, A framework for compound interrupted 
+sampling repeater jamming parameter measurement, IEEE Trans. Instrum. Meas. 74 
+(2025) 1–4. https://doi.org/10.1109/TIM.2025.3540128
+Aerospace Science and Technology 168 (2026) 111218 
+15 
