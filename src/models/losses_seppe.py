@@ -143,19 +143,9 @@ def compute_joint_loss(
     else:
         l_tl = torch.zeros((), device=tl_hat.device, dtype=tl_hat.dtype)
 
-    nf_class_weights = loss_cfg.get("nf_class_weights", None)
-    ce_weight = None
-    if nf_class_weights is not None:
-        ce_weight = torch.as_tensor(nf_class_weights, dtype=nf_logits.dtype, device=nf_logits.device)
-        if ce_weight.numel() != nf_logits.shape[-1]:
-            raise ValueError(
-                f"nf_class_weights length {int(ce_weight.numel())} "
-                f"!= num_classes {int(nf_logits.shape[-1])}"
-            )
     l_nf = F.cross_entropy(
         nf_logits.reshape(-1, nf_logits.shape[-1]),
         nf_true.reshape(-1),
-        weight=ce_weight,
     )
 
     if torch.any(active_mask):

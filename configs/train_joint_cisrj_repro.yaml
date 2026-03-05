@@ -17,5 +17,4 @@ loss:
   w_param: 0.5
   w_gate: 0.2
   w_ts: 1.0
-  nf_class_weights: [0.5, 1.5, 1.5, 1.5]
   tl_nf_weighted: false

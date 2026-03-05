@@ -9,7 +9,7 @@ import torch.nn.functional as F
 from src.data.stft import iq_to_logmag_stft
 from .blocks_1d import ConvBNAct1d, TCNResidualBlock
 from .blocks_2d import ConvBNAct2d, Residual2dBlock
-from .fusion import FusionMLP
+from .gateformer import GateFormer
 
 
 class RawBranchPE(nn.Module):
@@ -193,43 +193,33 @@ class PENet(nn.Module):
         raw_dim = int(m["raw_branch"]["stem_channels"][1])
         tf_dim = int(m["tf_branch"]["channels"][-1])
         mech_dim = int(m["mech_branch"]["hidden_dim"])
-        fused_in = raw_dim + tf_dim + mech_dim + raw_dim
-        fused_hidden = int(m["fusion"]["hidden_dim"])
-
-        self.fusion = FusionMLP(in_dim=fused_in, hidden_dim=fused_hidden)
-        self.tl_head = nn.Linear(fused_hidden, 1)
-        self.nf_head = nn.Linear(fused_hidden, len(self.nf_values))
-        self.softplus = nn.Softplus()
-
-    def _gate_pool(self, seq_feat: torch.Tensor, g_hat: torch.Tensor) -> torch.Tensor:
-        # seq_feat: (B,C,L), g_hat: (B,N)
-        g_down = F.interpolate(
-            g_hat.unsqueeze(1),
-            size=seq_feat.shape[-1],
-            mode="linear",
-            align_corners=False,
-        ).squeeze(1)  # (B,L)
-        w = g_down / (torch.sum(g_down, dim=1, keepdim=True) + 1e-6)
-        pooled = torch.sum(seq_feat * w.unsqueeze(1), dim=-1)
-        return pooled
+        self.gateformer = GateFormer(
+            seq_dim=raw_dim,
+            tf_dim=tf_dim,
+            mech_dim=mech_dim,
+            num_nf_classes=len(self.nf_values),
+            cfg=dict(m.get("gateformer", {})),
+        )
 
     def forward(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
         if x.ndim != 3 or x.shape[1] != 2:
             raise ValueError(f"Expected (B,2,N), got {tuple(x.shape)}")
 
         raw_out = self.raw(x)
-        z_iq = raw_out["z_iq"]
         seq_feat = raw_out["seq_feat"]
         g_logit = raw_out["g_logit"]
         g_hat = raw_out["g_hat"]
 
         z_tf = self.tf(x)
         z_mech = self.mech(x)
-        z_gate = self._gate_pool(seq_feat, g_hat)
-
-        z = self.fusion(torch.cat([z_iq, z_tf, z_mech, z_gate], dim=1))
-        tl_hat_us = self.softplus(self.tl_head(z)).squeeze(1)
-        nf_logits = self.nf_head(z)
+        param_out = self.gateformer(
+            seq_feat=seq_feat.transpose(1, 2),
+            g_logit=g_logit,
+            z_tf=z_tf,
+            z_mech=z_mech,
+        )
+        tl_hat_us = param_out["Tl_hat_us"]
+        nf_logits = param_out["NF_logits"]
 
         nf_vals = torch.tensor(self.nf_values, device=x.device, dtype=nf_logits.dtype)
         nf_prob = torch.softmax(nf_logits, dim=1)
