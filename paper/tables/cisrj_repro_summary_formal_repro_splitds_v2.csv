@@ -1,3 +1,0 @@
-Scenario,RunDir,SI_SDRi_mean_dB,SI_SDR_mean_dB,Paper_Table4_SI_SDRi_dB,Gap_to_Paper_dB,Count_active_sources
-dual,runs/exp_cisrj_repro_dual_formal_ds_v2,6.301829892754554,2.4828862051883953,20.9,-14.598170107245444,2000
-multi,runs/exp_cisrj_repro_multi_formal_ds_v2,8.673020239512125,1.2705332769593225,17.8,-9.126979760487876,3000

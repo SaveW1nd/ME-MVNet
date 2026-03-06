@@ -1,4 +1,0 @@
-2026-03-03 23:08:15,752 | INFO | Epoch 001 | train L=0.543609 acc=0.7776 | val L=0.374215 acc=0.8611
-2026-03-03 23:08:18,912 | INFO | Epoch 002 | train L=0.131454 acc=0.9583 | val L=0.135892 acc=0.9489
-2026-03-03 23:08:22,092 | INFO | Epoch 003 | train L=0.090664 acc=0.9755 | val L=0.044723 acc=0.9933
-2026-03-03 23:08:22,132 | INFO | Training finished. Best epoch=3 best_val=0.044723

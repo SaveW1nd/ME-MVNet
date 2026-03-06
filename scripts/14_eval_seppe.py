@@ -27,7 +27,7 @@ from src.eval.metrics_seppe import (
     compute_nf_confusion_4,
 )
 from src.models.builders import build_separator
-from src.models.penet import MVSepPE, PENet
+from src.models.penet import MVSepPE, build_pe
 from src.models.pit_perm import align_true_by_perm, best_perm_from_pairwise, pairwise_sep_cost
 from src.utils.io import ensure_dir, load_yaml, save_json
 
@@ -37,6 +37,8 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--ckpt", type=str, required=True)
     p.add_argument("--split", type=str, choices=["train", "val", "test"], default="test")
     p.add_argument("--scenario", type=str, choices=["all", "dual", "multi"], default="all")
+    p.add_argument("--subset-size", type=int, default=0)
+    p.add_argument("--subset-seed", type=int, default=20260304)
     p.add_argument("--data-config", type=str, default="configs/data_composite.yaml")
     p.add_argument("--sep-config", type=str, default="configs/model_sep.yaml")
     p.add_argument("--pe-config", type=str, default="configs/model_pe.yaml")
@@ -59,14 +61,26 @@ def _to_device(batch: dict[str, Any], device: torch.device) -> dict[str, Any]:
     return out
 
 
-def _subset_by_scenario(ds: CompositeISRJDataset, scenario: str) -> Subset | CompositeISRJDataset:
-    if scenario == "all":
-        return ds
-    target = 2 if scenario == "dual" else 3
-    idx = np.where(ds.k_active == target)[0]
-    if idx.size == 0:
-        raise RuntimeError(f"No samples for scenario={scenario}")
-    return Subset(ds, idx.tolist())
+def _resolve_eval_dataset(
+    ds: CompositeISRJDataset,
+    scenario: str,
+    subset_size: int,
+    subset_seed: int,
+) -> tuple[Subset | CompositeISRJDataset, int]:
+    idx = np.arange(len(ds), dtype=np.int64)
+    if scenario != "all":
+        target = 2 if scenario == "dual" else 3
+        idx = idx[ds.k_active == target]
+        if idx.size == 0:
+            raise RuntimeError(f"No samples for scenario={scenario}")
+
+    if subset_size > 0 and idx.size > subset_size:
+        rng = np.random.default_rng(subset_seed)
+        idx = rng.permutation(idx)[:subset_size]
+
+    if idx.size == len(ds) and scenario == "all" and subset_size <= 0:
+        return ds, int(idx.size)
+    return Subset(ds, idx.tolist()), int(idx.size)
 
 
 def _infer(
@@ -153,7 +167,12 @@ def main() -> None:
         raise FileNotFoundError(f"Missing split file: {split_path}")
 
     ds_full = CompositeISRJDataset(split_path, normalize_x=True)
-    ds = _subset_by_scenario(ds_full, args.scenario)
+    ds, num_eval_samples = _resolve_eval_dataset(
+        ds=ds_full,
+        scenario=args.scenario,
+        subset_size=int(args.subset_size),
+        subset_seed=int(args.subset_seed),
+    )
     loader = DataLoader(
         ds,
         batch_size=int(eval_cfg["batch_size"]),
@@ -162,7 +181,7 @@ def main() -> None:
         pin_memory=(device.type == "cuda"),
     )
 
-    model = MVSepPE(build_separator(sep_cfg), PENet(pe_cfg)).to(device)
+    model = MVSepPE(build_separator(sep_cfg), build_pe(pe_cfg)).to(device)
     ckpt = torch.load(ckpt_path, map_location=device, weights_only=False)
     model.load_state_dict(ckpt["model_state"], strict=True)
 
@@ -227,6 +246,9 @@ def main() -> None:
         {
             "split": args.split,
             "scenario": args.scenario,
+            "subset_size": int(args.subset_size),
+            "subset_seed": int(args.subset_seed),
+            "num_eval_samples": int(num_eval_samples),
             "overall": overall,
             "nf_classes": [0, 1, 2, 3],
             "confusion_matrix": cm.tolist(),
@@ -241,6 +263,7 @@ def main() -> None:
     print("Composite evaluation done.")
     print(json.dumps(overall, indent=2))
     print(f"Scenario: {args.scenario}")
+    print(f"Num eval samples: {num_eval_samples}")
     print(f"Saved predictions: {pred_dir / f'{args.split}_pred.npz'}")
     print(f"Saved tables: {table_dir}")
 

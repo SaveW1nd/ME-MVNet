@@ -1,4 +1,0 @@
-2026-03-04 14:00:06,384 | INFO | Epoch 001 | train L=21.01271 A_total=0.0046 NF_acc=0.4073 | val L=19.99806 A_total=0.0104 NF_acc=0.3797
-2026-03-04 14:00:21,635 | INFO | Epoch 002 | train L=19.77655 A_total=0.0147 NF_acc=0.4859 | val L=18.95113 A_total=0.0194 NF_acc=0.4180
-2026-03-04 14:00:36,534 | INFO | Epoch 003 | train L=18.75659 A_total=0.0257 NF_acc=0.5207 | val L=18.23635 A_total=0.0293 NF_acc=0.4233
-2026-03-04 14:00:36,643 | INFO | Stage2 done. best_epoch=3 best_A_total=0.029259

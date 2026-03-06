@@ -96,6 +96,8 @@ def generate_one_jammer(
     nf: int,
     tl_us: float,
     rng: np.random.Generator,
+    enable_right_shift: bool = True,
+    enable_freq_shift: bool = True,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Generate one jammer component and forwarding gate mask.
 
@@ -129,15 +131,17 @@ def generate_one_jammer(
             j[st:ed] += sl[:valid]
             g[st:ed] = 1
 
-    delay = _sample_safe_right_delay(g, rng=rng)
-    if delay > 0:
-        j = shift_right_zero_pad(j, delay=delay)
-        g = shift_right_zero_pad(g, delay=delay)
+    if enable_right_shift:
+        delay = _sample_safe_right_delay(g, rng=rng)
+        if delay > 0:
+            j = shift_right_zero_pad(j, delay=delay)
+            g = shift_right_zero_pad(g, delay=delay)
 
-    fd = float(rng.uniform(-0.2 * b, 0.2 * b))
-    idx = np.arange(n, dtype=np.float64)
-    phase = np.exp(1j * 2.0 * np.pi * fd * idx / fs).astype(np.complex64)
-    j = j * phase
+    if enable_freq_shift:
+        fd = float(rng.uniform(-0.2 * b, 0.2 * b))
+        idx = np.arange(n, dtype=np.float64)
+        phase = np.exp(1j * 2.0 * np.pi * fd * idx / fs).astype(np.complex64)
+        j = j * phase
     return j.astype(np.complex64), g.astype(np.uint8)
 
 
@@ -179,6 +183,60 @@ def _build_k_active_list(
     return _sample_k_active_list(count, dual_ratio=dual_ratio, rng=rng)
 
 
+def _sample_overlap_ratio(gates: np.ndarray, k_active: int) -> float:
+    active_gates = gates[:k_active].astype(bool)
+    active_sum = float(active_gates.sum())
+    if active_sum <= 0.0:
+        return 0.0
+    union = float(np.any(active_gates, axis=0).sum())
+    return float(1.0 - union / max(active_sum, 1.0))
+
+
+def _source_overlap_ratios(gates: np.ndarray, k_active: int) -> np.ndarray:
+    active_gates = gates[:k_active].astype(bool)
+    vals: list[float] = []
+    for k in range(k_active):
+        own = active_gates[k]
+        own_len = int(own.sum())
+        if own_len <= 0:
+            vals.append(0.0)
+            continue
+        other = np.any(active_gates[np.arange(k_active) != k], axis=0)
+        vals.append(float(np.logical_and(own, other).sum() / own_len))
+    return np.asarray(vals, dtype=np.float32)
+
+
+def _overlap_penalty(
+    *,
+    gates: np.ndarray,
+    k_active: int,
+    sample_overlap_max: float | None,
+    source_overlap_max: float | None,
+) -> float:
+    penalty = 0.0
+    if sample_overlap_max is not None:
+        sample_ov = _sample_overlap_ratio(gates, k_active)
+        penalty += max(0.0, sample_ov - sample_overlap_max)
+    if source_overlap_max is not None:
+        source_ov = _source_overlap_ratios(gates, k_active)
+        if source_ov.size > 0:
+            penalty += max(0.0, float(source_ov.max()) - source_overlap_max)
+    return float(penalty)
+
+
+def _overlap_control(cfg: dict[str, Any]) -> dict[str, Any]:
+    raw = cfg.get("overlap_control", {})
+    enabled = bool(raw.get("enabled", False))
+    sample_overlap_max = raw.get("sample_overlap_max")
+    source_overlap_max = raw.get("source_overlap_max")
+    return {
+        "enabled": enabled,
+        "sample_overlap_max": None if sample_overlap_max is None else float(sample_overlap_max),
+        "source_overlap_max": None if source_overlap_max is None else float(source_overlap_max),
+        "max_retries": int(raw.get("max_retries", 64)),
+    }
+
+
 def _meta_dict(cfg: dict[str, Any]) -> dict[str, Any]:
     signal = cfg["signal"]
     grid = cfg["grid"]
@@ -191,6 +249,7 @@ def _meta_dict(cfg: dict[str, Any]) -> dict[str, Any]:
         "seed": int(cfg["dataset"]["seed"]),
         "signal": signal,
         "grid": grid,
+        "augment": cfg.get("augment", {}),
         "scenario_mode": scenario_mode,
         "background": cfg["background"],
         "split": cfg["split"],
@@ -220,6 +279,10 @@ def generate_composite_split(
     tp = float(signal["tp"])
     pri = float(signal["pri"])
     b = float(signal["b"])
+    augment = cfg.get("augment", {})
+    overlap_ctl = _overlap_control(cfg)
+    enable_right_shift = bool(augment.get("enable_right_shift", True))
+    enable_freq_shift = bool(augment.get("enable_freq_shift", True))
     n = int(round(fs * pri))
     if n != int(signal["n"]):
         raise ValueError(f"N mismatch: computed {n}, config {signal['n']}")
@@ -249,39 +312,66 @@ def generate_composite_split(
 
     for i in range(num):
         k_active = int(k_active_arr[i])
-        jams = np.zeros((3, n), dtype=np.complex64)
-        gates = np.zeros((3, n), dtype=np.uint8)
+        n_trials = overlap_ctl["max_retries"] if overlap_ctl["enabled"] else 1
+        best_penalty = float("inf")
+        best_state: tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray] | None = None
 
-        for k in range(3):
-            if k >= k_active:
-                # In dual samples, the 3rd route is silence by definition.
-                nf_arr[i, k] = 0
-                tl_us_arr[i, k] = 0.0
-                ts_us_arr[i, k] = 0.0
-                jnr_arr[i, k] = 0.0
-                continue
+        for _ in range(n_trials):
+            jams = np.zeros((3, n), dtype=np.complex64)
+            gates = np.zeros((3, n), dtype=np.uint8)
+            nf_row = np.zeros((3,), dtype=np.int32)
+            tl_row = np.zeros((3,), dtype=np.float32)
+            ts_row = np.zeros((3,), dtype=np.float32)
+            jnr_row = np.zeros((3,), dtype=np.float32)
 
-            nf = int(rng.choice(nf_values))
-            tl_us = float(rng.uniform(tl_min_us, tl_max_us))
-            jnr_db = float(rng.uniform(jnr_min, jnr_max))
+            for k in range(3):
+                if k >= k_active:
+                    continue
 
-            j_raw, g = generate_one_jammer(
-                s_full=s_full,
-                fs=fs,
-                b=b,
-                nf=nf,
-                tl_us=tl_us,
-                rng=rng,
+                nf = int(rng.choice(nf_values))
+                tl_us = float(rng.uniform(tl_min_us, tl_max_us))
+                jnr_db = float(rng.uniform(jnr_min, jnr_max))
+
+                j_raw, g = generate_one_jammer(
+                    s_full=s_full,
+                    fs=fs,
+                    b=b,
+                    nf=nf,
+                    tl_us=tl_us,
+                    rng=rng,
+                    enable_right_shift=enable_right_shift,
+                    enable_freq_shift=enable_freq_shift,
+                )
+                p_target = pn * (10.0 ** (jnr_db / 10.0))
+                j = _scale_to_power(j_raw, p_target=p_target)
+
+                jams[k, :] = j
+                gates[k, :] = g
+                nf_row[k] = np.int32(nf)
+                tl_row[k] = np.float32(tl_us)
+                ts_row[k] = np.float32((nf + 1) * tl_us)
+                jnr_row[k] = np.float32(jnr_db)
+
+            penalty = _overlap_penalty(
+                gates=gates,
+                k_active=k_active,
+                sample_overlap_max=overlap_ctl["sample_overlap_max"],
+                source_overlap_max=overlap_ctl["source_overlap_max"],
             )
-            p_target = pn * (10.0 ** (jnr_db / 10.0))
-            j = _scale_to_power(j_raw, p_target=p_target)
+            if penalty < best_penalty:
+                best_penalty = penalty
+                best_state = (jams, gates, nf_row, tl_row, ts_row, jnr_row)
+            if penalty <= 0.0:
+                break
 
-            jams[k, :] = j
-            gates[k, :] = g
-            nf_arr[i, k] = np.int32(nf)
-            tl_us_arr[i, k] = np.float32(tl_us)
-            ts_us_arr[i, k] = np.float32((nf + 1) * tl_us)
-            jnr_arr[i, k] = np.float32(jnr_db)
+        if best_state is None:
+            raise RuntimeError("Failed to sample composite jammer state.")
+
+        jams, gates, nf_row, tl_row, ts_row, jnr_row = best_state
+        nf_arr[i, :] = nf_row
+        tl_us_arr[i, :] = tl_row
+        ts_us_arr[i, :] = ts_row
+        jnr_arr[i, :] = jnr_row
 
         # Background echo
         delay_echo = int(rng.integers(0, n))

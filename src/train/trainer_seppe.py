@@ -61,11 +61,22 @@ def _run_epoch(
     meters = {
         "L_total": AverageMeter(),
         "L_sep": AverageMeter(),
+        "L_sep_pulse": AverageMeter(),
+        "L_sep_occ": AverageMeter(),
+        "L_sep_edge": AverageMeter(),
         "L_gate": AverageMeter(),
         "L_param": AverageMeter(),
         "L_Tl": AverageMeter(),
         "L_NF": AverageMeter(),
+        "L_activeNF": AverageMeter(),
+        "L_NoZeroMargin": AverageMeter(),
         "L_Ts": AverageMeter(),
+        "L_TsDirect": AverageMeter(),
+        "L_KActive": AverageMeter(),
+        "L_ZeroCount": AverageMeter(),
+        "L_TlAux": AverageMeter(),
+        "L_phys": AverageMeter(),
+        "L_anchor": AverageMeter(),
         "NF_acc": AverageMeter(),
         "A_total": AverageMeter(),
     }
@@ -111,6 +122,21 @@ def _run_epoch(
                 n=bsz,
             )
             meters["L_sep"].update(float(torch.nan_to_num(losses["L_sep"], nan=0.0, posinf=0.0, neginf=0.0).item()), n=bsz)
+            if "L_sep_pulse" in losses:
+                meters["L_sep_pulse"].update(
+                    float(torch.nan_to_num(losses["L_sep_pulse"], nan=0.0, posinf=0.0, neginf=0.0).item()),
+                    n=bsz,
+                )
+            if "L_sep_occ" in losses:
+                meters["L_sep_occ"].update(
+                    float(torch.nan_to_num(losses["L_sep_occ"], nan=0.0, posinf=0.0, neginf=0.0).item()),
+                    n=bsz,
+                )
+            if "L_sep_edge" in losses:
+                meters["L_sep_edge"].update(
+                    float(torch.nan_to_num(losses["L_sep_edge"], nan=0.0, posinf=0.0, neginf=0.0).item()),
+                    n=bsz,
+                )
             meters["L_gate"].update(
                 float(torch.nan_to_num(losses["L_gate"], nan=0.0, posinf=0.0, neginf=0.0).item()),
                 n=bsz,
@@ -121,11 +147,68 @@ def _run_epoch(
             )
             meters["L_Tl"].update(float(torch.nan_to_num(losses["L_Tl"], nan=0.0, posinf=0.0, neginf=0.0).item()), n=bsz)
             meters["L_NF"].update(float(torch.nan_to_num(losses["L_NF"], nan=0.0, posinf=0.0, neginf=0.0).item()), n=bsz)
+            meters["L_activeNF"].update(
+                float(torch.nan_to_num(losses["L_activeNF"], nan=0.0, posinf=0.0, neginf=0.0).item()),
+                n=bsz,
+            )
+            if "L_NoZeroMargin" in losses:
+                meters["L_NoZeroMargin"].update(
+                    float(torch.nan_to_num(losses["L_NoZeroMargin"], nan=0.0, posinf=0.0, neginf=0.0).item()),
+                    n=bsz,
+                )
             meters["L_Ts"].update(float(torch.nan_to_num(losses["L_Ts"], nan=0.0, posinf=0.0, neginf=0.0).item()), n=bsz)
+            if "L_TsDirect" in losses:
+                meters["L_TsDirect"].update(
+                    float(torch.nan_to_num(losses["L_TsDirect"], nan=0.0, posinf=0.0, neginf=0.0).item()),
+                    n=bsz,
+                )
+            if "L_KActive" in losses:
+                meters["L_KActive"].update(
+                    float(torch.nan_to_num(losses["L_KActive"], nan=0.0, posinf=0.0, neginf=0.0).item()),
+                    n=bsz,
+                )
+            if "L_ZeroCount" in losses:
+                meters["L_ZeroCount"].update(
+                    float(torch.nan_to_num(losses["L_ZeroCount"], nan=0.0, posinf=0.0, neginf=0.0).item()),
+                    n=bsz,
+                )
+            if "L_TlAux" in losses:
+                meters["L_TlAux"].update(
+                    float(torch.nan_to_num(losses["L_TlAux"], nan=0.0, posinf=0.0, neginf=0.0).item()),
+                    n=bsz,
+                )
+            if "L_phys" in losses:
+                meters["L_phys"].update(
+                    float(torch.nan_to_num(losses["L_phys"], nan=0.0, posinf=0.0, neginf=0.0).item()),
+                    n=bsz,
+                )
+            if "L_anchor" in losses:
+                meters["L_anchor"].update(
+                    float(torch.nan_to_num(losses["L_anchor"], nan=0.0, posinf=0.0, neginf=0.0).item()),
+                    n=bsz,
+                )
 
     out = {k: float(v.avg) for k, v in meters.items()}
     out["N_skip"] = float(skipped)
     return out
+
+
+def _resolve_epoch_loss_cfg(loss_cfg: dict, epoch: int) -> dict:
+    """Resolve epoch-wise loss weights (optional ramp for nozero-margin)."""
+    cfg = dict(loss_cfg)
+    ramp_epochs = int(loss_cfg.get("w_nozero_ramp_epochs", 0))
+    if ramp_epochs <= 0:
+        return cfg
+
+    base_w = float(loss_cfg.get("w_nozero_margin", 0.0))
+    start_w = float(loss_cfg.get("w_nozero_start", 0.0))
+    if ramp_epochs == 1:
+        cfg["w_nozero_margin"] = base_w
+        return cfg
+
+    t = min(max((float(epoch) - 1.0) / float(ramp_epochs - 1), 0.0), 1.0)
+    cfg["w_nozero_margin"] = start_w + (base_w - start_w) * t
+    return cfg
 
 
 def _save_ckpt(
@@ -136,24 +219,25 @@ def _save_ckpt(
     scaler: torch.amp.GradScaler,
     epoch: int,
     best_a_total: float,
+    save_train_state: bool,
 ) -> None:
-    torch.save(
-        {
-            "model_state": model.state_dict(),
-            "optimizer_state": optimizer.state_dict(),
-            "scheduler_state": scheduler.state_dict(),
-            "scaler_state": scaler.state_dict(),
-            "epoch": int(epoch),
-            "best_a_total": float(best_a_total),
-        },
-        path,
-    )
+    payload = {
+        "model_state": model.state_dict(),
+        "epoch": int(epoch),
+        "best_a_total": float(best_a_total),
+    }
+    if save_train_state:
+        payload["optimizer_state"] = optimizer.state_dict()
+        payload["scheduler_state"] = scheduler.state_dict()
+        payload["scaler_state"] = scaler.state_dict()
+    torch.save(payload, path)
 
 
 def fit_seppe_joint(
     *,
     model: torch.nn.Module,
     train_loader: DataLoader,
+    train_eval_loader: DataLoader | None,
     val_loader: DataLoader,
     device: torch.device,
     train_cfg: dict,
@@ -184,6 +268,7 @@ def fit_seppe_joint(
     scaler = torch.amp.GradScaler(device=device.type, enabled=amp_enabled)
     grad_clip = float(train_cfg["grad_clip"])
     patience = int(train_cfg["early_stop_patience"])
+    save_train_state = bool(train_cfg.get("save_train_state", True))
 
     best_a_total = -1.0
     best_epoch = 0
@@ -191,6 +276,7 @@ def fit_seppe_joint(
     start = time.time()
 
     for epoch in range(1, epochs + 1):
+        epoch_loss_cfg = _resolve_epoch_loss_cfg(loss_cfg=loss_cfg, epoch=epoch)
         train_m = _run_epoch(
             model=model,
             loader=train_loader,
@@ -199,9 +285,21 @@ def fit_seppe_joint(
             scaler=scaler,
             amp_enabled=amp_enabled,
             grad_clip=grad_clip,
-            loss_cfg=loss_cfg,
+            loss_cfg=epoch_loss_cfg,
         )
         with torch.no_grad():
+            train_eval_m = None
+            if train_eval_loader is not None:
+                train_eval_m = _run_epoch(
+                    model=model,
+                    loader=train_eval_loader,
+                    device=device,
+                    optimizer=None,
+                    scaler=scaler,
+                    amp_enabled=amp_enabled,
+                    grad_clip=0.0,
+                    loss_cfg=epoch_loss_cfg,
+                )
             val_m = _run_epoch(
                 model=model,
                 loader=val_loader,
@@ -210,24 +308,54 @@ def fit_seppe_joint(
                 scaler=scaler,
                 amp_enabled=amp_enabled,
                 grad_clip=0.0,
-                loss_cfg=loss_cfg,
+                loss_cfg=epoch_loss_cfg,
             )
         scheduler.step()
 
-        rec = {"epoch": epoch, "lr": optimizer.param_groups[0]["lr"], "train": train_m, "val": val_m}
+        rec = {
+            "epoch": epoch,
+            "lr": optimizer.param_groups[0]["lr"],
+            "w_nozero_margin": float(epoch_loss_cfg.get("w_nozero_margin", 0.0)),
+            "train": train_m,
+            "train_eval": train_eval_m,
+            "val": val_m,
+        }
         append_jsonl(metrics_path, rec)
-        logger.info(
-            "Epoch %03d | train L=%.5f A_total=%.4f NF_acc=%.4f skip=%d | val L=%.5f A_total=%.4f NF_acc=%.4f skip=%d",
-            epoch,
-            train_m["L_total"],
-            train_m["A_total"],
-            train_m["NF_acc"],
-            int(train_m["N_skip"]),
-            val_m["L_total"],
-            val_m["A_total"],
-            val_m["NF_acc"],
-            int(val_m["N_skip"]),
-        )
+        if train_eval_m is not None:
+            logger.info(
+                "Epoch %03d | w_nozero=%.4f | train L=%.5f A_total=%.4f NF_acc=%.4f skip=%d | "
+                "train_eval L=%.5f A_total=%.4f NF_acc=%.4f skip=%d | "
+                "val L=%.5f A_total=%.4f NF_acc=%.4f skip=%d",
+                epoch,
+                float(epoch_loss_cfg.get("w_nozero_margin", 0.0)),
+                train_m["L_total"],
+                train_m["A_total"],
+                train_m["NF_acc"],
+                int(train_m["N_skip"]),
+                train_eval_m["L_total"],
+                train_eval_m["A_total"],
+                train_eval_m["NF_acc"],
+                int(train_eval_m["N_skip"]),
+                val_m["L_total"],
+                val_m["A_total"],
+                val_m["NF_acc"],
+                int(val_m["N_skip"]),
+            )
+        else:
+            logger.info(
+                "Epoch %03d | w_nozero=%.4f | train L=%.5f A_total=%.4f NF_acc=%.4f skip=%d | "
+                "val L=%.5f A_total=%.4f NF_acc=%.4f skip=%d",
+                epoch,
+                float(epoch_loss_cfg.get("w_nozero_margin", 0.0)),
+                train_m["L_total"],
+                train_m["A_total"],
+                train_m["NF_acc"],
+                int(train_m["N_skip"]),
+                val_m["L_total"],
+                val_m["A_total"],
+                val_m["NF_acc"],
+                int(val_m["N_skip"]),
+            )
 
         _save_ckpt(
             ckpt_dir / "last.pt",
@@ -237,6 +365,7 @@ def fit_seppe_joint(
             scaler=scaler,
             epoch=epoch,
             best_a_total=best_a_total,
+            save_train_state=save_train_state,
         )
 
         improved = val_m["A_total"] > best_a_total + 1e-8
@@ -252,6 +381,7 @@ def fit_seppe_joint(
                 scaler=scaler,
                 epoch=epoch,
                 best_a_total=best_a_total,
+                save_train_state=save_train_state,
             )
         else:
             stale += 1

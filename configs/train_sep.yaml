@@ -1,12 +1,19 @@
 train_sep:
   seed: 20260304
+  scenario: all
   batch_size: 64
   num_workers: 0
   epochs_smoke: 3
-  epochs_formal: 50
+  epochs_formal: 80
   lr: 0.001
   weight_decay: 0.0001
   grad_clip: 5.0
-  early_stop_patience: 10
+  early_stop_patience: 16
   amp: true
   device: auto
+  worst_cases_to_export: 0
+  worst_cases_split: val
+  loss_sep:
+    hard_mining_enable: false
+    hard_sisdri_thr_db: 0.0
+    hard_weight: 2.0

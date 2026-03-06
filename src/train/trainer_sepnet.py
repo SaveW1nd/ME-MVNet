@@ -9,12 +9,43 @@ from typing import Any
 import torch
 from torch.utils.data import DataLoader
 
+from src.eval.sep_worst_cases import export_worst_cases
 from src.models.losses_seppe import compute_sep_loss
 from src.models.pit_perm import align_true_by_perm
 from src.models.sisdr import si_sdr
 from src.utils.io import ensure_dir
 from src.utils.logging import append_jsonl, build_logger
 from src.utils.meters import AverageMeter
+
+
+def _build_optimizer(
+    model: torch.nn.Module,
+    cfg: dict,
+) -> tuple[torch.optim.Optimizer, str]:
+    opt_cfg = dict(cfg.get("optimizer", {}))
+    opt_type = str(opt_cfg.get("type", "adamw")).lower()
+    lr = float(cfg["lr"])
+    weight_decay = float(cfg["weight_decay"])
+
+    if opt_type == "adam":
+        return (
+            torch.optim.Adam(
+                model.parameters(),
+                lr=lr,
+                weight_decay=weight_decay,
+            ),
+            opt_type,
+        )
+    if opt_type == "adamw":
+        return (
+            torch.optim.AdamW(
+                model.parameters(),
+                lr=lr,
+                weight_decay=weight_decay,
+            ),
+            opt_type,
+        )
+    raise ValueError(f"Unsupported optimizer type: {opt_type}")
 
 
 def _build_scheduler(
@@ -100,16 +131,23 @@ def _run_epoch(
 ) -> dict[str, float]:
     is_train = optimizer is not None
     model.train(is_train)
+    seen = 0
 
     meters = {
         "L_sep": AverageMeter(),
         "L_sep_jam": AverageMeter(),
+        "L_sep_jam_unweighted": AverageMeter(),
         "L_sep_bg": AverageMeter(),
         "L_sep_sil": AverageMeter(),
         "L_sep_orth": AverageMeter(),
         "L_sep_bgtrue": AverageMeter(),
         "L_sep_bgenv": AverageMeter(),
         "L_sep_div": AverageMeter(),
+        "L_sep_div_active": AverageMeter(),
+        "L_sep_occ": AverageMeter(),
+        "L_sep_edge": AverageMeter(),
+        "hard_ratio": AverageMeter(),
+        "case_sisdri_db": AverageMeter(),
         "SI_SDR_jam": AverageMeter(),
         "SI_SDR_bg": AverageMeter(),
     }
@@ -118,6 +156,7 @@ def _run_epoch(
     for batch in loader:
         batch = _to_device(batch, device)
         bsz = batch["X"].shape[0]
+        seen += int(bsz)
 
         with torch.set_grad_enabled(is_train):
             with torch.autocast(
@@ -126,7 +165,10 @@ def _run_epoch(
                 enabled=amp_enabled,
             ):
                 sep_out = model(batch["X"])
-                losses = compute_sep_loss(batch=batch, sep_out=sep_out, loss_cfg=sep_loss_cfg)
+                cur_loss_cfg = dict(sep_loss_cfg or {})
+                if not is_train:
+                    cur_loss_cfg["hard_mining_enable"] = False
+                losses = compute_sep_loss(batch=batch, sep_out=sep_out, loss_cfg=cur_loss_cfg)
                 loss = losses["L_sep"]
 
             if not torch.isfinite(loss):
@@ -155,6 +197,11 @@ def _run_epoch(
                 float(torch.nan_to_num(losses["L_sep_jam"], nan=0.0, posinf=0.0, neginf=0.0).item()),
                 n=bsz,
             )
+            if "L_sep_jam_unweighted" in losses:
+                meters["L_sep_jam_unweighted"].update(
+                    float(torch.nan_to_num(losses["L_sep_jam_unweighted"], nan=0.0, posinf=0.0, neginf=0.0).item()),
+                    n=bsz,
+                )
             meters["L_sep_bg"].update(
                 float(torch.nan_to_num(losses["L_sep_bg"], nan=0.0, posinf=0.0, neginf=0.0).item()),
                 n=bsz,
@@ -184,9 +231,35 @@ def _run_epoch(
                     float(torch.nan_to_num(losses["L_sep_div"], nan=0.0, posinf=0.0, neginf=0.0).item()),
                     n=bsz,
                 )
+            if "L_sep_div_active" in losses:
+                meters["L_sep_div_active"].update(
+                    float(torch.nan_to_num(losses["L_sep_div_active"], nan=0.0, posinf=0.0, neginf=0.0).item()),
+                    n=bsz,
+                )
+            if "L_sep_occ" in losses:
+                meters["L_sep_occ"].update(
+                    float(torch.nan_to_num(losses["L_sep_occ"], nan=0.0, posinf=0.0, neginf=0.0).item()),
+                    n=bsz,
+                )
+            if "L_sep_edge" in losses:
+                meters["L_sep_edge"].update(
+                    float(torch.nan_to_num(losses["L_sep_edge"], nan=0.0, posinf=0.0, neginf=0.0).item()),
+                    n=bsz,
+                )
+            if "hard_ratio" in losses:
+                meters["hard_ratio"].update(
+                    float(torch.nan_to_num(losses["hard_ratio"], nan=0.0, posinf=0.0, neginf=0.0).item()),
+                    n=bsz,
+                )
+            if "sep_case_sisdri_db_mean" in losses:
+                meters["case_sisdri_db"].update(
+                    float(torch.nan_to_num(losses["sep_case_sisdri_db_mean"], nan=0.0, posinf=0.0, neginf=0.0).item()),
+                    n=bsz,
+                )
 
     out = {k: float(v.avg) for k, v in meters.items()}
     out["N_skip"] = float(skipped)
+    out["AllSkipped"] = float(seen > 0 and skipped >= seen)
     return out
 
 
@@ -229,11 +302,7 @@ def fit_sepnet(
     logger = build_logger(log_dir / "train.log")
     metrics_path = log_dir / "metrics.jsonl"
 
-    optimizer = torch.optim.AdamW(
-        model.parameters(),
-        lr=float(cfg["lr"]),
-        weight_decay=float(cfg["weight_decay"]),
-    )
+    optimizer, optimizer_type = _build_optimizer(model=model, cfg=cfg)
     scheduler, scheduler_type = _build_scheduler(optimizer=optimizer, cfg=cfg, epochs=epochs)
     amp_enabled = bool(cfg["amp"]) and device.type == "cuda"
     scaler = torch.amp.GradScaler(device=device.type, enabled=amp_enabled)
@@ -244,6 +313,7 @@ def fit_sepnet(
     best_val = float("inf")
     best_epoch = 0
     stale = 0
+    best_ckpt_path = ckpt_dir / "best.pt"
     start = time.time()
 
     for epoch in range(1, epochs + 1):
@@ -296,12 +366,13 @@ def fit_sepnet(
             best_val=best_val,
         )
 
-        if val_m["L_sep"] < best_val:
-            best_val = val_m["L_sep"]
+        val_metric = float("inf") if bool(val_m.get("AllSkipped", 0.0)) else float(val_m["L_sep"])
+        if val_metric < best_val:
+            best_val = val_metric
             best_epoch = epoch
             stale = 0
             _save_ckpt(
-                ckpt_dir / "best.pt",
+                best_ckpt_path,
                 model=model,
                 optimizer=optimizer,
                 scheduler=scheduler,
@@ -316,11 +387,43 @@ def fit_sepnet(
                 break
 
     elapsed = time.time() - start
+
+    worst_cases_to_export = int(cfg.get("worst_cases_to_export", 0))
+    worst_cases_split = str(cfg.get("worst_cases_split", "val")).lower()
+    worst_summary: dict[str, Any] | None = None
+    if worst_cases_to_export > 0:
+        if best_ckpt_path.exists():
+            ckpt = torch.load(best_ckpt_path, map_location=device, weights_only=False)
+            model.load_state_dict(ckpt["model_state"], strict=True)
+        target_loader = val_loader if worst_cases_split == "val" else train_loader
+        try:
+            worst_summary = export_worst_cases(
+                model=model,
+                loader=target_loader,
+                device=device,
+                run_dir=run_dir,
+                num_cases=worst_cases_to_export,
+                split_name=worst_cases_split,
+            )
+            logger.info(
+                "Exported worst cases: split=%s num=%d mean_case_sisdri=%.3f",
+                worst_cases_split,
+                int(worst_summary.get("num_exported", 0)),
+                float(worst_summary.get("mean_case_sisdri_db", 0.0)),
+            )
+        except Exception as exc:  # pragma: no cover - best-effort diagnostics
+            logger.exception("Worst-case export failed: %s", exc)
+
     logger.info("Stage1 done. best_epoch=%d best_val=%.6f", best_epoch, best_val)
-    return {
+    ret = {
         "best_epoch": best_epoch,
         "best_val": best_val,
         "elapsed_seconds": elapsed,
+        "optimizer_type": optimizer_type,
+        "scheduler_type": scheduler_type,
         "best_checkpoint": str(ckpt_dir / "best.pt"),
         "last_checkpoint": str(ckpt_dir / "last.pt"),
     }
+    if worst_summary is not None:
+        ret["worst_case_summary"] = worst_summary
+    return ret

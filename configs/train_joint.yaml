@@ -2,13 +2,14 @@ train_joint:
   seed: 20260304
   batch_size: 48
   num_workers: 0
+  train_eval_num_samples: 512
   epochs_smoke: 3
-  epochs_formal: 80
+  epochs_formal: 120
   lr_sep: 0.0002
   lr_pe: 0.0008
   weight_decay: 0.0001
   grad_clip: 5.0
-  early_stop_patience: 12
+  early_stop_patience: 20
   amp: false
   device: auto
   save_train_state: false
@@ -17,11 +18,17 @@ loss:
   w_param: 0.5
   w_gate: 0.2
   w_ts: 1.0
+  w_ts_direct: 0.0
   w_active_nf: 0.3
+  w_nozero_margin: 0.0
+  w_kactive: 0.0
+  w_zero_count: 0.0
+  w_tl_aux: 0.2
   w_phys: 0.0
   w_anchor: 0.0
   active_pos_weight: 1.5
   w_bg: 0.01
+  w_pulse: 0.0
   w_sil: 0.25
   w_orth: 0.05
   w_div: 0.0
@@ -29,3 +36,4 @@ loss:
   w_bgtrue: 0.0
   w_bgenv: 0.0
   tl_nf_weighted: false
+  active_zero_margin: 0.5

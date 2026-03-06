@@ -24,13 +24,14 @@ dist/
 *.egg-info/
 
 # Experiment artifacts
-runs/exp_*/
-runs/exp_sep_*/
-runs/exp_joint_*/
-runs/sanity_composite/
-data/raw/isrj_single_dataset_v1/
-data/raw/cisrj_seppe_v1/
-data/processed/isrj_single_dataset_v1/
+runs/
+paper/figures/
+paper/tables/
+paper/need*/
+data/raw/
+data/processed/
+external/
+*.pdf
 
 # OS
 .DS_Store

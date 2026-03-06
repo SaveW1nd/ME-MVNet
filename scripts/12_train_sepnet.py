@@ -11,8 +11,9 @@ import argparse
 import sys
 from pathlib import Path
 
+import numpy as np
 import torch
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Subset
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -32,6 +33,12 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--train-config", type=str, default="configs/train_sep.yaml")
     p.add_argument("--init-ckpt", type=str, default=None)
     p.add_argument("--init-partial", action="store_true")
+    p.add_argument("--scenario", type=str, choices=["all", "dual", "multi"], default=None)
+    p.add_argument("--hard-mining", action="store_true")
+    p.add_argument("--hard-sisdri-thr-db", type=float, default=0.0)
+    p.add_argument("--hard-weight", type=float, default=2.0)
+    p.add_argument("--worst-cases", type=int, default=None)
+    p.add_argument("--worst-cases-split", type=str, choices=["train", "val"], default=None)
     p.add_argument("--mode", type=str, choices=["smoke", "formal"], default="formal")
     p.add_argument("--exp-name", type=str, default=None)
     return p.parse_args()
@@ -58,11 +65,37 @@ def _build_run_dir(exp_name: str | None) -> Path:
     return run_dir
 
 
+def _subset_by_scenario(ds: CompositeISRJDataset, scenario: str) -> Subset | CompositeISRJDataset:
+    if scenario == "all":
+        return ds
+    target = 2 if scenario == "dual" else 3
+    idx = np.where(ds.k_active == target)[0]
+    if idx.size == 0:
+        raise RuntimeError(f"No samples for scenario={scenario}")
+    return Subset(ds, idx.tolist())
+
+
 def main() -> None:
     args = parse_args()
     data_cfg = load_yaml(args.data_config)
     model_cfg = load_yaml(args.model_config)
     train_cfg = load_yaml(args.train_config)["train_sep"]
+    scenario = str(args.scenario or train_cfg.get("scenario", "all")).lower()
+    if scenario not in {"all", "dual", "multi"}:
+        raise ValueError(f"Invalid scenario: {scenario}")
+
+    loss_sep = dict(train_cfg.get("loss_sep", {}))
+    if args.hard_mining:
+        loss_sep["hard_mining_enable"] = True
+        loss_sep["hard_sisdri_thr_db"] = float(args.hard_sisdri_thr_db)
+        loss_sep["hard_weight"] = float(args.hard_weight)
+    train_cfg["loss_sep"] = loss_sep
+
+    if args.worst_cases is not None:
+        train_cfg["worst_cases_to_export"] = int(args.worst_cases)
+    if args.worst_cases_split is not None:
+        train_cfg["worst_cases_split"] = str(args.worst_cases_split)
+    train_cfg["scenario"] = scenario
 
     set_global_seed(int(train_cfg["seed"]))
     device = _select_device(train_cfg)
@@ -75,8 +108,10 @@ def main() -> None:
         raise FileNotFoundError(f"Missing composite dataset in {data_dir}. Run script 10 first.")
 
     normalize_targets = bool(train_cfg.get("normalize_targets", False))
-    train_ds = CompositeISRJDataset(train_npz, normalize_x=True, normalize_targets=normalize_targets)
-    val_ds = CompositeISRJDataset(val_npz, normalize_x=True, normalize_targets=normalize_targets)
+    train_ds_raw = CompositeISRJDataset(train_npz, normalize_x=True, normalize_targets=normalize_targets)
+    val_ds_raw = CompositeISRJDataset(val_npz, normalize_x=True, normalize_targets=normalize_targets)
+    train_ds = _subset_by_scenario(train_ds_raw, scenario=scenario)
+    val_ds = _subset_by_scenario(val_ds_raw, scenario=scenario)
 
     train_loader = DataLoader(
         train_ds,
@@ -119,6 +154,7 @@ def main() -> None:
             "init_ckpt": args.init_ckpt,
             "init_partial": bool(args.init_partial),
             "normalize_targets": normalize_targets,
+            "scenario": scenario,
         },
         run_dir / "config_dump.yaml",
     )

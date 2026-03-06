@@ -19,7 +19,8 @@ model_pe:
     hidden_dim: 64
 
   periodic_branch:
-    enabled: true
+    enabled: false
+    detach_gate_logit: true
     out_dim: 64
     max_lag: 1400
     conv_channels_1: 32
@@ -36,3 +37,41 @@ model_pe:
     dropout: 0.1
     max_seq_len: 1024
     head_hidden_dim: 128
+    min_tl_us: 0.2
+    max_tl_us: 3.5
+    min_ts_us: 0.4
+    max_ts_us: 8.0
+    ts_direct_enabled: false
+    nf_head_mode: flat
+    tl_use_periodic_fusion: false
+
+  ts_blend:
+    alpha: 0.5
+    learnable: false
+    min_margin_us: 0.05
+
+  slot_refiner:
+    enabled: false
+    d_model: 128
+    num_heads: 4
+    num_layers: 1
+    dropout: 0.1
+    nf_delta_scale: 0.6
+    tl_delta_scale: 0.20
+    min_tl_us: 0.2
+    max_tl_us: 3.5
+
+  slot_set_decoder:
+    enabled: false
+    d_model: 160
+    num_heads: 4
+    num_layers: 2
+    dropout: 0.1
+    head_hidden_dim: 128
+    min_tl_us: 0.2
+    max_tl_us: 3.5
+
+  kactive_head:
+    enabled: false
+    hidden_dim: 128
+    logit_scale: 1.0

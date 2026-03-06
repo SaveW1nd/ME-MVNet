@@ -45,7 +45,8 @@ def _check_split(
     n_expected: int,
     count_expected: int,
     eps: float,
-    dual_ratio: float,
+    dual_ratio: float | None,
+    k_active_fixed: int | None,
 ) -> None:
     x = d["X"]
     j = d["J"]
@@ -67,13 +68,21 @@ def _check_split(
     n2 = int(np.sum(ka == 2))
     n3 = int(np.sum(ka == 3))
     print(f"{name} K_active counts: {{2: {n2}, 3: {n3}}}")
-    expected_n2 = int(round(count_expected * dual_ratio))
-    expected_n3 = count_expected - expected_n2
-    if n2 != expected_n2 or n3 != expected_n3:
-        raise AssertionError(
-            f"{name}: K_active ratio mismatch. got (2:{n2},3:{n3}) "
-            f"expected (2:{expected_n2},3:{expected_n3})"
-        )
+    if k_active_fixed is None:
+        if dual_ratio is None:
+            raise AssertionError(f"{name}: missing both k_active_fixed and k_active_dual_ratio in config")
+        expected_n2 = int(round(count_expected * dual_ratio))
+        expected_n3 = count_expected - expected_n2
+        if n2 != expected_n2 or n3 != expected_n3:
+            raise AssertionError(
+                f"{name}: K_active ratio mismatch. got (2:{n2},3:{n3}) "
+                f"expected (2:{expected_n2},3:{expected_n3})"
+            )
+    else:
+        if k_active_fixed == 2 and (n2 != count_expected or n3 != 0):
+            raise AssertionError(f"{name}: expected all dual samples, got (2:{n2},3:{n3})")
+        if k_active_fixed == 3 and (n3 != count_expected or n2 != 0):
+            raise AssertionError(f"{name}: expected all multi samples, got (2:{n2},3:{n3})")
 
     # Dual samples must have third source silence.
     idx_dual = np.where(ka == 2)[0]
@@ -154,15 +163,17 @@ def main() -> None:
     n_expected = int(cfg["signal"]["n"])
     eps = float(cfg["sanity"]["ts_tl_eps"])
     expected = cfg["split"]
-    dual_ratio = float(cfg["grid"]["k_active_dual_ratio"])
+    grid_cfg = cfg["grid"]
+    k_active_fixed = int(grid_cfg["k_active_fixed"]) if "k_active_fixed" in grid_cfg else None
+    dual_ratio = float(grid_cfg["k_active_dual_ratio"]) if "k_active_dual_ratio" in grid_cfg else None
 
     train = _load_npz(data_dir / "train.npz")
     val = _load_npz(data_dir / "val.npz")
     test = _load_npz(data_dir / "test.npz")
 
-    _check_split("train", train, n_expected, int(expected["train"]), eps, dual_ratio)
-    _check_split("val", val, n_expected, int(expected["val"]), eps, dual_ratio)
-    _check_split("test", test, n_expected, int(expected["test"]), eps, dual_ratio)
+    _check_split("train", train, n_expected, int(expected["train"]), eps, dual_ratio, k_active_fixed)
+    _check_split("val", val, n_expected, int(expected["val"]), eps, dual_ratio, k_active_fixed)
+    _check_split("test", test, n_expected, int(expected["test"]), eps, dual_ratio, k_active_fixed)
 
     _plot_examples(train, out_dir=out_dir, num_plot=args.num_plot)
     print(f"Sanity figures saved to: {out_dir}")

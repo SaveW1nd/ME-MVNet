@@ -1,4 +1,0 @@
-2026-03-04 13:59:28,606 | INFO | Epoch 001 | train L_sep=40.88637 SIjam=-15.505 | val L_sep=27.51025 SIjam=-12.529
-2026-03-04 13:59:33,242 | INFO | Epoch 002 | train L_sep=24.93609 SIjam=-11.659 | val L_sep=23.69968 SIjam=-11.246
-2026-03-04 13:59:37,596 | INFO | Epoch 003 | train L_sep=21.51310 SIjam=-10.601 | val L_sep=20.49156 SIjam=-10.320
-2026-03-04 13:59:37,631 | INFO | Stage1 done. best_epoch=3 best_val=20.491560

@@ -22,6 +22,15 @@ background:
   echo_snr_db: 0.0
   noise_power: 1.0
 
+augment:
+  enable_right_shift: false
+  enable_freq_shift: false
+
+overlap_control:
+  enabled: true
+  source_overlap_max: 0.85
+  max_retries: 64
+
 split:
   train: 5000
   val: 1000
