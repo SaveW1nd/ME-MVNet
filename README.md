@@ -35,8 +35,6 @@
 
 ### 训练与评测入口
 
-- `scripts/10_generate_dataset_composite.py`
-- `scripts/11_sanity_check_composite.py`
 - `scripts/12_train_sepnet.py`
 - `scripts/13_train_seppe_joint.py`
 - `scripts/14_eval_seppe.py`
@@ -55,7 +53,6 @@
 
 ### 数据与训练支持
 
-- `src/data/isrj_composite_generator.py`
 - `src/data/dataset_npz_composite.py`
 - `src/data/stft.py`
 - `src/train/trainer_sepnet.py`
@@ -63,12 +60,10 @@
 
 ## 标准流程
 
-### 1. 生成数据
+### 1. 准备数据
 
-```bash
-python scripts/10_generate_dataset_composite.py --config configs/data_composite.yaml
-python scripts/11_sanity_check_composite.py --config configs/data_composite.yaml
-```
+远端仓库不包含数据生成代码。训练前请先在本地准备好复合数据集，并确保
+`configs/data_composite.yaml` 中的 `dataset.output_dir` 指向可用数据目录。
 
 ### 2. Stage-1 训练 Separator
 
@@ -103,4 +98,5 @@ python scripts/14_eval_seppe.py --ckpt runs/exp_joint_formal/checkpoints/best.pt
 
 - 默认路径只服务于当前主架构。
 - 实验分支代码允许保留，但不应进入默认配置与默认文档。
+- 数据生成代码仅保留在本地，不进入远端仓库。
 - `runs/`、临时脚本、实验日志、阶段性说明文件不属于仓库主内容。
