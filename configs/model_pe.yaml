@@ -9,12 +9,14 @@ model_pe:
     dropout: 0.1
 
   tf_branch:
+    enabled: true
     n_fft: 256
     hop_length: 64
     win_length: 256
     channels: [32, 64, 128]
 
   mech_branch:
+    enabled: false
     feature_dim: 32
     hidden_dim: 64
 

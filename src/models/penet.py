@@ -385,11 +385,25 @@ class PENet(nn.Module):
         raw_cfg = dict(m["raw_branch"])
         raw_cfg["gate_hidden_dim"] = int(m["gate_head"]["hidden_dim"])
         self.raw = RawBranchPE(raw_cfg, n_samples=self.n_samples)
-        self.tf = TFBranchPE(m["tf_branch"])
-        self.mech = MechanismBranchPE(
-            feature_dim=int(m["mech_branch"]["feature_dim"]),
-            hidden_dim=int(m["mech_branch"]["hidden_dim"]),
-        )
+        tf_cfg = dict(m.get("tf_branch", {}))
+        self.use_tf = bool(tf_cfg.get("enabled", True))
+        tf_hidden_dim = int(tf_cfg.get("channels", [0])[-1]) if self.use_tf else 0
+        if self.use_tf and tf_hidden_dim > 0:
+            self.tf = TFBranchPE(tf_cfg)
+        else:
+            self.tf = None
+            tf_hidden_dim = 0
+        mech_cfg = dict(m.get("mech_branch", {}))
+        self.use_mech = bool(mech_cfg.get("enabled", True))
+        mech_hidden_dim = int(mech_cfg.get("hidden_dim", 0)) if self.use_mech else 0
+        if self.use_mech and mech_hidden_dim > 0:
+            self.mech = MechanismBranchPE(
+                feature_dim=int(mech_cfg["feature_dim"]),
+                hidden_dim=mech_hidden_dim,
+            )
+        else:
+            self.mech = None
+            mech_hidden_dim = 0
         periodic_cfg = dict(m.get("periodic_branch", {}))
         self.use_periodic = bool(periodic_cfg.get("enabled", False))
         self.periodic_detach_gate_logit = bool(periodic_cfg.get("detach_gate_logit", True))
@@ -417,8 +431,8 @@ class PENet(nn.Module):
             sep_gate_dim = 0
 
         raw_dim = int(m["raw_branch"]["stem_channels"][1])
-        tf_dim = int(m["tf_branch"]["channels"][-1])
-        mech_dim = int(m["mech_branch"]["hidden_dim"])
+        tf_dim = tf_hidden_dim
+        mech_dim = mech_hidden_dim
         self.gateformer = GateFormer(
             seq_dim=raw_dim,
             tf_dim=tf_dim,
@@ -499,8 +513,14 @@ class PENet(nn.Module):
             g_logit = (1.0 - alpha) * g_logit + alpha * g_hint_logit
         g_hat = torch.sigmoid(g_logit)
 
-        z_tf = self.tf(x)
-        z_mech = self.mech(x)
+        if self.tf is not None:
+            z_tf = self.tf(x)
+        else:
+            z_tf = g_logit.new_zeros((g_logit.shape[0], 0))
+        if self.mech is not None:
+            z_mech = self.mech(x)
+        else:
+            z_mech = z_tf.new_zeros((z_tf.shape[0], 0))
         if self.periodic is not None:
             g_for_periodic = g_logit.detach() if self.periodic_detach_gate_logit else g_logit
             z_periodic = self.periodic(x=x, g_logit=g_for_periodic)

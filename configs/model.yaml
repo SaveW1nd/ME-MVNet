@@ -15,6 +15,7 @@ model:
     channels: [32, 64, 128]
 
   mech_branch:
+    enabled: false
     feature_dim: 32
     hidden_dim: 64
 
