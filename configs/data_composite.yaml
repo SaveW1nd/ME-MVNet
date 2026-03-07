@@ -29,6 +29,10 @@ augment:
 overlap_control:
   enabled: true
   source_overlap_max: 0.85
+  source_overlap_max_dual: 0.85
+  source_overlap_max_multi: 0.85
+  source_overlap_gt_05_ratio_dual: 0.40
+  source_overlap_gt_05_ratio_multi: 0.40
   max_retries: 64
 
 split:
